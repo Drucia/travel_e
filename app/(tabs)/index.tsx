@@ -5,16 +5,15 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { EventListItem } from '@/components/EventListItem';
 import { CalendarMonth, MonthHeader, markersFromEvents } from '@/components/calendar';
-import { Card, EmptyState, Screen } from '@/components/ui';
+import { Banner, Card, EmptyState, Screen } from '@/components/ui';
 import { colors, radius, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
+import { useApp } from '@/context/AppContext';
+import { listEventsBetween } from '@/lib/cloud/queries';
 import { formatDayLong, shiftMonth, toISODate, monthRange } from '@/lib/dates';
-import { listEventsBetween } from '@/lib/db/queries';
 import type { EventRecord } from '@/lib/db/types';
 
 export default function CalendarScreen() {
-  const db = useDb();
-  const { activeSeason } = useApp();
+  const { activeSeason, group, userId, cloudError } = useApp();
   const router = useRouter();
   const today = toISODate(new Date());
   const initial = new Date();
@@ -25,10 +24,18 @@ export default function CalendarScreen() {
   const [events, setEvents] = useState<EventRecord[]>([]);
 
   const load = useCallback(async () => {
-    const range = monthRange(year, monthIndex);
-    const rows = await listEventsBetween(db, range.start, range.end);
-    setEvents(rows);
-  }, [db, year, monthIndex]);
+    if (!group || !userId) {
+      setEvents([]);
+      return;
+    }
+    try {
+      const range = monthRange(year, monthIndex);
+      const rows = await listEventsBetween(group.id, userId, range.start, range.end);
+      setEvents(rows);
+    } catch (error) {
+      console.warn('Nie udało się wczytać kalendarza', error);
+    }
+  }, [group, userId, year, monthIndex]);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,6 +65,8 @@ export default function CalendarScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {cloudError ? <Banner text={cloudError} /> : null}
+        {group ? <Text style={styles.season}>{group.name}</Text> : null}
         {activeSeason ? <Text style={styles.season}>{activeSeason.name}</Text> : null}
 
         {todayEvents.length > 0 ? (

@@ -6,19 +6,18 @@ import { DestinationRow } from '@/components/DestinationRow';
 import { TextField } from '@/components/fields';
 import { AppButton, Card, ChoiceGroup, Screen, SectionLabel } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
-import { formatDayLong, formatTimeRange } from '@/lib/dates';
+import { useApp } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
-import { completeEvent, deleteEvent, getEvent } from '@/lib/db/queries';
+import { completeEvent, deleteEvent, getEvent } from '@/lib/cloud/queries';
+import { formatDayLong, formatTimeRange } from '@/lib/dates';
 import type { EventRecord, Transport, TripDirection } from '@/lib/db/types';
 import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL, formatMoney, tripAmount } from '@/lib/format';
 import { cancelEventReminder, syncEventReminder } from '@/lib/notifications';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const db = useDb();
   const router = useRouter();
-  const { destinations, refresh } = useApp();
+  const { destinations, refresh, userId, settings } = useApp();
 
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [attended, setAttended] = useState<boolean | null>(null);
@@ -30,8 +29,8 @@ export default function EventDetailScreen() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    if (!id) return;
-    const next = await getEvent(db, id);
+    if (!id || !userId) return;
+    const next = await getEvent(id, userId, destinations);
     setEvent(next);
     if (!next) return;
     setAttended(next.attended);
@@ -40,7 +39,7 @@ export default function EventDetailScreen() {
     setDestinationId(next.destinationId);
     setTripDirection(next.tripDirection ?? (next.traveled ? 'round_trip' : null));
     setAbsenceNote(next.absenceNote ?? '');
-  }, [db, id]);
+  }, [destinations, id, userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,18 +57,23 @@ export default function EventDetailScreen() {
       tripDirection !== null);
 
   async function save() {
-    if (!id || attended === null || !canSave) return;
+    if (!id || !userId || attended === null || !canSave) return;
     setSaving(true);
     try {
-      await completeEvent(db, id, {
-        attended,
-        absenceNote: absenceNote.trim() || null,
-        traveled,
-        transport,
-        destinationId,
-        tripDirection,
-      });
-      await syncEventReminder(db, id);
+      const updated = await completeEvent(
+        userId,
+        id,
+        {
+          attended,
+          absenceNote: absenceNote.trim() || null,
+          traveled,
+          transport,
+          destinationId,
+          tripDirection,
+        },
+        destinations
+      );
+      await syncEventReminder(updated, settings);
       await refresh();
       router.back();
     } catch (error) {
@@ -81,10 +85,10 @@ export default function EventDetailScreen() {
 
   async function confirmDelete() {
     if (!id) return;
-    const ok = await confirmAction('Usunąć wydarzenie?', 'Tej operacji nie można cofnąć.');
+    const ok = await confirmAction('Usunąć wydarzenie?', 'Zniknie z kalendarza całej grupy. Tej operacji nie można cofnąć.');
     if (!ok) return;
     await cancelEventReminder(id);
-    await deleteEvent(db, id);
+    await deleteEvent(id);
     await refresh();
     router.back();
   }

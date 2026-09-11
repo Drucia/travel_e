@@ -4,14 +4,7 @@ import * as Notifications from 'expo-notifications';
 
 import { combineDateTime } from '@/lib/dates';
 import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL } from '@/lib/format';
-import {
-  getEvent,
-  getSettings,
-  listIncompleteEvents,
-  setEventNotificationId,
-} from '@/lib/db/queries';
 import type { EventRecord, Settings } from '@/lib/db/types';
-import type { SQLiteDatabase } from 'expo-sqlite';
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -71,30 +64,18 @@ export async function cancelEventReminder(eventId: string): Promise<void> {
   }
 }
 
-export async function scheduleEventReminder(
-  db: SQLiteDatabase,
-  event: EventRecord,
-  settings?: Settings
-): Promise<void> {
-  const resolved = settings ?? (await getSettings(db));
+export async function scheduleEventReminder(event: EventRecord, settings: Settings): Promise<void> {
   await cancelEventReminder(event.id);
 
-  if (!resolved.reminderEnabled || event.completed || Platform.OS === 'web') {
-    await setEventNotificationId(db, event.id, null);
+  if (!settings.reminderEnabled || event.completed || Platform.OS === 'web') {
     return;
   }
 
   const allowed = await ensureNotificationSetup();
-  if (!allowed) {
-    await setEventNotificationId(db, event.id, null);
-    return;
-  }
+  if (!allowed) return;
 
-  const fireAt = getReminderAt(event, resolved);
-  if (fireAt.getTime() <= Date.now()) {
-    await setEventNotificationId(db, event.id, null);
-    return;
-  }
+  const fireAt = getReminderAt(event, settings);
+  if (fireAt.getTime() <= Date.now()) return;
 
   const identifier = reminderIdentifier(event.id);
   const trigger: Notifications.NotificationTriggerInput = {
@@ -112,25 +93,19 @@ export async function scheduleEventReminder(
     },
     trigger,
   });
-
-  await setEventNotificationId(db, event.id, identifier);
 }
 
-export async function syncEventReminder(db: SQLiteDatabase, eventId: string): Promise<void> {
-  const event = await getEvent(db, eventId);
-  if (!event) return;
+export async function syncEventReminder(event: EventRecord, settings: Settings): Promise<void> {
   if (event.completed) {
     await cancelEventReminder(event.id);
-    await setEventNotificationId(db, event.id, null);
     return;
   }
-  await scheduleEventReminder(db, event);
+  await scheduleEventReminder(event, settings);
 }
 
-export async function rescheduleAllReminders(db: SQLiteDatabase): Promise<void> {
-  const settings = await getSettings(db);
-  const events = await listIncompleteEvents(db);
+export async function rescheduleAllReminders(settings: Settings, events: EventRecord[]): Promise<void> {
   const upcoming = events
+    .filter((event) => !event.completed)
     .map((event) => ({ event, fireAt: getReminderAt(event, settings) }))
     .filter((item) => item.fireAt.getTime() > Date.now())
     .sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime())
@@ -140,11 +115,10 @@ export async function rescheduleAllReminders(db: SQLiteDatabase): Promise<void> 
   for (const event of events) {
     if (!upcomingIds.has(event.id)) {
       await cancelEventReminder(event.id);
-      await setEventNotificationId(db, event.id, null);
     }
   }
   for (const item of upcoming) {
-    await scheduleEventReminder(db, item.event, settings);
+    await scheduleEventReminder(item.event, settings);
   }
 }
 

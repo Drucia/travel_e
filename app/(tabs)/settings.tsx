@@ -1,9 +1,11 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { AppButton, Card, Screen, SettingRow } from '@/components/ui';
+import { AppButton, Banner, Card, Screen, SettingRow } from '@/components/ui';
 import { colors, radius, space } from '@/constants/theme';
 import { useApp, useDb } from '@/context/AppContext';
+import { useAuth } from '@/context/AuthContext';
+import { listIncompleteEvents } from '@/lib/cloud/queries';
 import { formatTimeRange } from '@/lib/dates';
 import { updateSettings } from '@/lib/db/queries';
 import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL, formatWeekdays } from '@/lib/format';
@@ -11,7 +13,8 @@ import { ensureNotificationSetup, rescheduleAllReminders } from '@/lib/notificat
 
 export default function SettingsScreen() {
   const db = useDb();
-  const { settings, activeSeason, destinations, scheduleRules, refresh } = useApp();
+  const { settings, activeSeason, destinations, scheduleRules, refresh, group, userId, cloudError } = useApp();
+  const { email, signOut } = useAuth();
   const router = useRouter();
 
   async function toggleReminders(enabled: boolean) {
@@ -22,14 +25,34 @@ export default function SettingsScreen() {
         return;
       }
     }
-    await updateSettings(db, { reminderEnabled: enabled });
-    await rescheduleAllReminders(db);
+    const next = await updateSettings(db, { reminderEnabled: enabled });
+    if (group && userId) {
+      const incomplete = await listIncompleteEvents(group.id, userId);
+      await rescheduleAllReminders(next, incomplete);
+    }
     await refresh();
+  }
+
+  async function onSignOut() {
+    await signOut();
   }
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {cloudError ? <Banner text={cloudError} /> : null}
+
+        <Card>
+          <Text style={styles.section}>Konto</Text>
+          <SettingRow label="E-mail" value={email ?? '—'} />
+          <SettingRow
+            label="Grupa"
+            value={group?.name ?? 'Brak'}
+            onPress={() => router.push('/groups' as Href)}
+          />
+          <AppButton label="Wyloguj" variant="secondary" onPress={() => void onSignOut()} />
+        </Card>
+
         <Card>
           <Text style={styles.section}>Sezony</Text>
           <SettingRow

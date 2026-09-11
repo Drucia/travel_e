@@ -5,14 +5,13 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, 
 import { DateField, TextField } from '@/components/fields';
 import { AppButton, Screen } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
+import { useApp } from '@/context/AppContext';
 import { currentSeasonWindow } from '@/lib/dates';
-import { createSeason } from '@/lib/db/queries';
+import { createSeason } from '@/lib/cloud/queries';
 
 export default function NewSeasonScreen() {
-  const db = useDb();
   const router = useRouter();
-  const { refresh } = useApp();
+  const { refresh, group } = useApp();
   const seed = currentSeasonWindow();
   const [name, setName] = useState(seed.name);
   const [startDate, setStartDate] = useState(seed.startDate);
@@ -29,9 +28,13 @@ export default function NewSeasonScreen() {
       Alert.alert('Niepoprawne daty', 'Data zakończenia musi być późniejsza niż data startu.');
       return;
     }
+    if (!group) {
+      Alert.alert('Brak grupy', 'Najpierw dołącz do grupy.');
+      return;
+    }
     setSaving(true);
     try {
-      const season = await createSeason(db, {
+      const season = await createSeason(group.id, {
         name,
         startDate,
         endDate,

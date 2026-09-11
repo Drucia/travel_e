@@ -29,13 +29,21 @@ export function TextField({
   placeholder,
   multiline,
   keyboardType,
+  autoCapitalize,
+  autoCorrect,
+  autoComplete,
+  secureTextEntry,
 }: {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: 'default' | 'decimal-pad' | 'numeric';
+  keyboardType?: 'default' | 'decimal-pad' | 'numeric' | 'email-address';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  autoCorrect?: boolean;
+  autoComplete?: 'email' | 'password' | 'off' | 'name';
+  secureTextEntry?: boolean;
 }) {
   return (
     <LabeledField label={label}>
@@ -46,6 +54,10 @@ export function TextField({
         placeholderTextColor={colors.muted}
         multiline={multiline}
         keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
+        autoComplete={autoComplete}
+        secureTextEntry={secureTextEntry}
         style={[styles.input, multiline && styles.textarea]}
       />
     </LabeledField>

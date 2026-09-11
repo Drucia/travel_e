@@ -58,6 +58,56 @@ export type ScheduleRule = {
   updatedAt: string;
 };
 
+export type GroupRole = 'owner' | 'member';
+
+export type Group = {
+  id: string;
+  name: string;
+  joinCode: string;
+  createdBy: string;
+  createdAt: string;
+  role: GroupRole;
+};
+
+export type GroupMember = {
+  userId: string;
+  role: GroupRole;
+  email: string | null;
+  displayName: string;
+  createdAt: string;
+};
+
+export type EventResponse = {
+  userId: string;
+  eventId: string;
+  attended: boolean | null;
+  traveled: boolean | null;
+  transport: Transport | null;
+  tripDirection: TripDirection | null;
+  destinationId: string | null;
+  absenceNote: string | null;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CloudEvent = {
+  id: string;
+  groupId: string;
+  seasonId: string;
+  date: string;
+  startTime: string;
+  endTime: string | null;
+  type: EventType;
+  destinationId: string | null;
+  destinationName: string | null;
+  notes: string | null;
+  source: 'manual' | 'schedule';
+  scheduleRuleId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Settings = {
   reminderEnabled: boolean;
   reminderTime: string;

@@ -5,15 +5,14 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } f
 import { TextField } from '@/components/fields';
 import { AppButton, Screen } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
-import { createDestination, getDestination, updateDestination } from '@/lib/db/queries';
+import { useApp } from '@/context/AppContext';
+import { createDestination, getDestination, updateDestination } from '@/lib/cloud/queries';
 import { formatMoney } from '@/lib/format';
 
 export default function DestinationFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const db = useDb();
   const router = useRouter();
-  const { refresh } = useApp();
+  const { refresh, group } = useApp();
   const editing = Boolean(id);
 
   const [name, setName] = useState('');
@@ -24,13 +23,13 @@ export default function DestinationFormScreen() {
   useEffect(() => {
     if (!id) return;
     void (async () => {
-      const destination = await getDestination(db, id);
+      const destination = await getDestination(id);
       if (!destination) return;
       setName(destination.name);
       setAddress(destination.address ?? '');
       setRate(String(destination.roundTripRate).replace('.', ','));
     })();
-  }, [db, id]);
+  }, [id]);
 
   const parsedRate = Number(rate.replace(',', '.'));
   const oneWayRate = Number.isNaN(parsedRate) ? 0 : parsedRate / 2;
@@ -52,9 +51,12 @@ export default function DestinationFormScreen() {
         roundTripRate: parsedRate,
       };
       if (editing && id) {
-        await updateDestination(db, id, payload);
+        await updateDestination(id, payload);
+      } else if (!group) {
+        Alert.alert('Brak grupy', 'Najpierw dołącz do grupy.');
+        return;
       } else {
-        await createDestination(db, payload);
+        await createDestination(group.id, payload);
       }
       await refresh();
       router.back();

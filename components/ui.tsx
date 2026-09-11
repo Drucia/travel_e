@@ -141,6 +141,15 @@ export function SettingRow({
   );
 }
 
+export function Banner({ text }: { text: string }) {
+  if (!text) return null;
+  return (
+    <View style={styles.banner}>
+      <Text style={styles.bannerText}>{text}</Text>
+    </View>
+  );
+}
+
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <View style={styles.empty}>
@@ -282,6 +291,18 @@ const styles = StyleSheet.create({
   settingValue: {
     color: colors.muted,
     fontSize: 15,
+  },
+  banner: {
+    backgroundColor: '#FDECEA',
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: 12,
+  },
+  bannerText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   empty: {
     paddingVertical: space.lg,

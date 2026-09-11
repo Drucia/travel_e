@@ -4,19 +4,18 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton, EmptyState, Screen } from '@/components/ui';
 import { DestinationRow } from '@/components/DestinationRow';
 import { colors, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
+import { useApp } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
-import { deleteDestination } from '@/lib/db/queries';
+import { deleteDestination } from '@/lib/cloud/queries';
 
 export default function DestinationsScreen() {
   const { destinations, refresh } = useApp();
-  const db = useDb();
   const router = useRouter();
 
   async function confirmDelete(id: string, name: string) {
     const ok = await confirmAction('Usunąć miejsce?', `${name} zniknie z listy. Wydarzenia pozostaną.`);
     if (!ok) return;
-    await deleteDestination(db, id);
+    await deleteDestination(id);
     await refresh();
   }
 

@@ -379,6 +379,23 @@ export async function getSettings(db: SQLiteDatabase): Promise<Settings> {
   };
 }
 
+export async function getActiveGroupId(db: SQLiteDatabase): Promise<string | null> {
+  const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', 'activeGroupId');
+  return row?.value ? row.value : null;
+}
+
+export async function setActiveGroupId(db: SQLiteDatabase, id: string | null): Promise<void> {
+  if (!id) {
+    await db.runAsync('DELETE FROM settings WHERE key = ?', 'activeGroupId');
+    return;
+  }
+  await db.runAsync(
+    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    'activeGroupId',
+    id
+  );
+}
+
 export async function updateSettings(
   db: SQLiteDatabase,
   patch: Partial<Settings>

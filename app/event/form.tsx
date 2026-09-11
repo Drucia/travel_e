@@ -6,16 +6,15 @@ import { DestinationRow } from '@/components/DestinationRow';
 import { DateField, TextField, TimeField } from '@/components/fields';
 import { AppButton, ChoiceGroup, Screen, SectionLabel } from '@/components/ui';
 import { colors, radius, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
+import { useApp } from '@/context/AppContext';
+import { createEventForUser, getEvent, updateEventForUser } from '@/lib/cloud/queries';
 import { toISODate } from '@/lib/dates';
-import { createEvent, getEvent, updateEvent } from '@/lib/db/queries';
 import type { EventType } from '@/lib/db/types';
 import { scheduleEventReminder } from '@/lib/notifications';
 
 export default function EventFormScreen() {
   const { date, id } = useLocalSearchParams<{ date?: string; id?: string }>();
-  const db = useDb();
-  const { seasons, destinations, activeSeason, refresh } = useApp();
+  const { seasons, destinations, activeSeason, refresh, group, userId, settings } = useApp();
   const router = useRouter();
   const editing = Boolean(id);
 
@@ -35,9 +34,9 @@ export default function EventFormScreen() {
   }, [activeSeason, id, seasonId]);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !userId) return;
     void (async () => {
-      const event = await getEvent(db, id);
+      const event = await getEvent(id, userId, destinations);
       if (!event) return;
       setType(event.type);
       setEventDate(event.date);
@@ -47,9 +46,13 @@ export default function EventFormScreen() {
       setDestinationId(event.destinationId);
       setNotes(event.notes ?? '');
     })();
-  }, [db, id]);
+  }, [destinations, id, userId]);
 
   async function save() {
+    if (!group || !userId) {
+      Alert.alert('Brak grupy', 'Najpierw dołącz do grupy.');
+      return;
+    }
     if (!seasonId) {
       Alert.alert('Brak sezonu', 'Najpierw utwórz sezon.');
       return;
@@ -65,8 +68,11 @@ export default function EventFormScreen() {
         destinationId,
         notes: notes.trim() || null,
       };
-      const event = editing && id ? await updateEvent(db, id, draft) : await createEvent(db, draft);
-      await scheduleEventReminder(db, event);
+      const event =
+        editing && id
+          ? await updateEventForUser(id, userId, draft, destinations)
+          : await createEventForUser(group.id, userId, draft, destinations);
+      await scheduleEventReminder(event, settings);
       await refresh();
       if (editing) {
         router.back();
