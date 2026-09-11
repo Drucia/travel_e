@@ -1,70 +1,86 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Tabs } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { colors } from '@/constants/theme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: colors.background },
+        headerTitleStyle: { fontWeight: '700', color: colors.text, fontSize: 20 },
+        headerTintColor: colors.text,
+        tabBarActiveTintColor: colors.text,
+        tabBarInactiveTintColor: '#9A9A9A',
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+          height: 64,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginBottom: 6,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          title: 'Kalendarz',
+          tabBarIcon: ({ focused }) => <TabIcon name="calendar-outline" focused={focused} />,
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="dashboard"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
-          ),
+          title: 'Dashboard',
+          tabBarIcon: ({ focused }) => <TabIcon name="stats-chart-outline" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="seasons"
+        options={{
+          title: 'Sezony',
+          tabBarIcon: ({ focused }) => <TabIcon name="trophy-outline" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Ustawienia',
+          tabBarIcon: ({ focused }) => <TabIcon name="settings-outline" focused={focused} />,
         }}
       />
     </Tabs>
   );
 }
+
+function TabIcon({
+  name,
+  focused,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  focused: boolean;
+}) {
+  return (
+    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+      <Ionicons name={name} size={22} color={colors.text} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    width: 36,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapActive: {
+    backgroundColor: colors.accent,
+  },
+});

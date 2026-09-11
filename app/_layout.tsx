@@ -1,56 +1,99 @@
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { SQLiteProvider } from 'expo-sqlite';
+import { StatusBar } from 'expo-status-bar';
+import { Suspense, useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { PhonePreview } from '@/components/PhonePreview';
+import { LoadingScreen } from '@/components/ui';
+import { colors } from '@/constants/theme';
+import { AppProvider } from '@/context/AppContext';
+import { migrateDbIfNeeded } from '@/lib/db/schema';
+import { eventIdFromNotificationData } from '@/lib/notifications';
+
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export {
-  // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
   initialRouteName: '(tabs)',
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
-
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-
-  return <RootLayoutNav />;
+  return (
+    <PhonePreview>
+      <Suspense fallback={<LoadingScreen />}>
+        <SQLiteProvider
+          databaseName="ewidencja.db"
+          onInit={migrateDbIfNeeded}
+          useSuspense
+          options={{ useNewConnection: Platform.OS === 'web' }}>
+          <AppProvider>
+            <NotificationGate />
+            <StatusBar style="dark" />
+            <Stack
+              screenOptions={{
+                headerShadowVisible: false,
+                headerStyle: { backgroundColor: colors.background },
+                headerTintColor: colors.text,
+                headerTitleStyle: { fontWeight: '700' },
+                contentStyle: { backgroundColor: colors.background },
+              }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="event" options={{ headerShown: false }} />
+              <Stack.Screen name="season" options={{ headerShown: false }} />
+              <Stack.Screen name="destinations" options={{ headerShown: false }} />
+              <Stack.Screen name="schedule" options={{ headerShown: false }} />
+            </Stack>
+          </AppProvider>
+        </SQLiteProvider>
+      </Suspense>
+    </PhonePreview>
+  );
 }
 
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+function NotificationGate() {
+  const router = useRouter();
+  const handled = useRef<string | null>(null);
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
-  );
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => undefined);
+    if (Platform.OS === 'web') return undefined;
+
+    function openFromResponse(response: Notifications.NotificationResponse | null) {
+      const eventId = eventIdFromNotificationData(response?.notification.request.content.data);
+      if (!eventId || handled.current === eventId) return;
+      handled.current = eventId;
+      router.push(`/event/${eventId}`);
+    }
+
+    const timeout = setTimeout(() => {
+      try {
+        openFromResponse(Notifications.getLastNotificationResponse());
+      } catch {
+        // unsupported
+      }
+    }, 400);
+
+    let sub: { remove: () => void } | null = null;
+    try {
+      sub = Notifications.addNotificationResponseReceivedListener((response) => {
+        handled.current = null;
+        openFromResponse(response);
+      });
+    } catch {
+      // unsupported
+    }
+
+    return () => {
+      clearTimeout(timeout);
+      sub?.remove();
+    };
+  }, [router]);
+
+  return null;
 }
