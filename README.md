@@ -63,7 +63,9 @@ cp .env.example .env
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+# albo starszy anon JWT:
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 ```
 
 Pliku `.env` nie commituj — jest w `.gitignore`.

@@ -22,8 +22,9 @@ export default function SetupScreen() {
         <Card>
           <Text style={styles.step}>2. Wklej URL i klucz</Text>
           <Text style={styles.body}>
-            Project Settings → API: skopiuj Project URL i anon public key. W folderze aplikacji skopiuj
-            .env.example do .env i wklej te dwie wartości.
+            Project Settings → API: skopiuj Project URL i klucz publishable (albo anon public). W
+            folderze aplikacji skopiuj .env.example do .env i wklej te dwie wartości. Ta aplikacja
+            jest na Expo — nie używaj snippetu Next.js z panelu.
           </Text>
         </Card>
         <Card>

@@ -11,7 +11,7 @@ let client: SupabaseClient | null = null;
 export function getSupabase(): SupabaseClient {
   if (!isSupabaseConfigured()) {
     throw new CloudError(
-      'Brak konfiguracji Supabase. Skopiuj .env.example do .env i wklej URL oraz anon key z panelu.'
+      'Brak konfiguracji Supabase. Skopiuj .env.example do .env i wklej URL oraz klucz publishable/anon z panelu.'
     );
   }
   if (!client) {
