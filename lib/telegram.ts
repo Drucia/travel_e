@@ -28,16 +28,43 @@ type TelegramInbox = {
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 
+export function parseBotToken(raw: string): string {
+  const compact = raw.replace(/\s+/g, '');
+  const match = compact.match(/(\d{6,}:[A-Za-z0-9_-]{20,})/);
+  return match ? match[1] : raw.trim();
+}
+
+export function parseChatId(raw: string): string {
+  const labeled = raw.match(/(?:id|chat(?:\s*id)?)\s*[:#]?\s*(-?\d{5,})/i);
+  if (labeled) return labeled[1];
+  const digits = raw.trim().match(/-?\d{5,}/);
+  return digits ? digits[0] : raw.trim();
+}
+
 export function telegramConfigured(settings: Pick<Settings, 'telegramBotToken' | 'telegramChatId'>): boolean {
   return isLikelyBotToken(settings.telegramBotToken) && isLikelyChatId(settings.telegramChatId);
 }
 
 export function isLikelyBotToken(value: string): boolean {
-  return /^\d{6,}:[A-Za-z0-9_-]{20,}$/.test(value.trim());
+  return /^\d{6,}:[A-Za-z0-9_-]{20,}$/.test(parseBotToken(value));
 }
 
 export function isLikelyChatId(value: string): boolean {
-  return /^-?\d{5,}$/.test(value.trim());
+  return /^-?\d{5,}$/.test(parseChatId(value));
+}
+
+function telegramErrorMessage(description: string): string {
+  const text = description.toLowerCase();
+  if (text.includes('unauthorized')) {
+    return 'Token jest nieprawidłowy. Skopiuj go jeszcze raz z BotFather (całość po „HTTP API”).';
+  }
+  if (text.includes("can't initiate conversation") || text.includes('bot was blocked') || text.includes('forbidden')) {
+    return 'Otwórz swojego bota (nie BotFather) i naciśnij Start. Potem spróbuj ponownie.';
+  }
+  if (text.includes('chat not found')) {
+    return 'Złe chat ID. Weź liczbę Id z @userinfobot — nie ID bota z tokenu.';
+  }
+  return description;
 }
 
 export function eventReminderUrl(eventId: string): string {
@@ -54,38 +81,59 @@ export function reminderMessage(event: EventRecord, url: string): { title: strin
   return { title, body, text: `${title}\n\n${body}\n${url}` };
 }
 
-export async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<boolean> {
-  const url = `https://api.telegram.org/bot${token.trim()}/sendMessage?chat_id=${encodeURIComponent(
-    chatId.trim()
-  )}&text=${encodeURIComponent(text)}&disable_web_page_preview=true`;
+type TelegramApiResponse = {
+  ok?: boolean;
+  description?: string;
+};
 
-  try {
-    const response = await fetch(url);
-    if (response.ok) {
-      const payload = (await response.json()) as { ok?: boolean };
-      return payload.ok === true;
+async function telegramApi(token: string, method: string, params: Record<string, string>): Promise<TelegramApiResponse> {
+  const query = new URLSearchParams(params).toString();
+  const direct = `https://api.telegram.org/bot${token}/${method}?${query}`;
+  const urls = [
+    direct,
+    `https://corsproxy.io/?${encodeURIComponent(direct)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(direct)}`,
+  ];
+
+  let lastError = 'Nie udało się połączyć z Telegramem.';
+  for (const url of urls) {
+    try {
+      const response = await fetch(url);
+      const payload = (await response.json()) as TelegramApiResponse & { contents?: string };
+      if (typeof payload.contents === 'string') {
+        return JSON.parse(payload.contents) as TelegramApiResponse;
+      }
+      if (typeof payload.ok === 'boolean') {
+        return payload;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : lastError;
     }
-  } catch {
-    // Browser CORS often blocks reading the response; the request may still have reached Telegram.
   }
+  throw new Error(lastError);
+}
 
-  try {
-    await fetch(url, { mode: 'no-cors' });
-    return true;
-  } catch {
-    return false;
-  }
+export async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<boolean> {
+  const payload = await telegramApi(parseBotToken(token), 'sendMessage', {
+    chat_id: parseChatId(chatId),
+    text,
+    disable_web_page_preview: 'true',
+  });
+  if (payload.ok) return true;
+  throw new Error(telegramErrorMessage(payload.description ?? 'Telegram odrzucił wiadomość.'));
 }
 
 export async function sendTelegramTest(token: string, chatId: string): Promise<void> {
-  const ok = await sendTelegramMessage(
-    token,
-    chatId,
+  const normalizedToken = parseBotToken(token);
+  const normalizedChatId = parseChatId(chatId);
+  if (normalizedChatId === normalizedToken.split(':')[0]) {
+    throw new Error('W chat ID wkleiłaś ID bota z tokenu. Otwórz @userinfobot i skopiuj swoje Id.');
+  }
+  await sendTelegramMessage(
+    normalizedToken,
+    normalizedChatId,
     'Ewidencja połączona. Po treningu lub meczu dostaniesz tu przypomnienie o uzupełnieniu dojazdu.'
   );
-  if (!ok) {
-    throw new Error('Telegram nie przyjął wiadomości. Sprawdź token, chat ID i czy bot dostał /start.');
-  }
 }
 
 export async function ensureTelegramInbox(settings: Settings): Promise<string> {
@@ -176,10 +224,14 @@ async function flushDueTelegramReminders(settings: Settings, items: TelegramRemi
     const key = sentKey(item.id, item.fireAt);
     if (sentKeys.has(key)) continue;
     const text = `${item.title}\n\n${item.body}\n${item.url}`;
-    const ok = await sendTelegramMessage(settings.telegramBotToken, settings.telegramChatId, text);
-    if (ok) {
-      sentKeys.add(key);
-      newlySent.push({ id: item.id, fireAt: item.fireAt });
+    try {
+      const ok = await sendTelegramMessage(settings.telegramBotToken, settings.telegramChatId, text);
+      if (ok) {
+        sentKeys.add(key);
+        newlySent.push({ id: item.id, fireAt: item.fireAt });
+      }
+    } catch (error) {
+      console.warn('Nie wysłano przypomnienia Telegram', error);
     }
   }
 

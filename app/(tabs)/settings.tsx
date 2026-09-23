@@ -23,6 +23,8 @@ import {
   ensureTelegramInbox,
   isLikelyBotToken,
   isLikelyChatId,
+  parseBotToken,
+  parseChatId,
   sendTelegramTest,
   telegramConfigured,
 } from '@/lib/telegram';
@@ -96,14 +98,16 @@ export default function SettingsScreen() {
   }
 
   async function saveTelegram() {
-    const token = botToken.trim();
-    const id = chatId.trim();
+    const token = parseBotToken(botToken);
+    const id = parseChatId(chatId);
+    setBotToken(token);
+    setChatId(id);
     if (!isLikelyBotToken(token)) {
-      Alert.alert('Token', 'To nie wygląda na token z BotFather (liczby, dwukropek, potem ciąg znaków).');
+      Alert.alert('Token', 'To nie wygląda na token z BotFather. Wklej całość, z dwukropkiem w środku.');
       return;
     }
     if (!isLikelyChatId(id)) {
-      Alert.alert('Chat ID', 'Chat ID to liczba z @userinfobot, na przykład 123456789.');
+      Alert.alert('Chat ID', 'To musi być liczba z @userinfobot, np. 123456789 — nie nazwa bota.');
       return;
     }
     setTelegramBusy(true);
@@ -301,7 +305,7 @@ export default function SettingsScreen() {
               @BotFather
             </Text>
             {' '}→ /newbot → skopiuj token.{'\n'}
-            2. Wejdź do swojego bota i naciśnij Start.{'\n'}
+            2. Wejdź do <Text style={styles.link}>swojego</Text> bota (nie BotFather) i naciśnij Start.{'\n'}
             3. Otwórz{' '}
             <Text style={styles.link} onPress={() => void Linking.openURL('https://t.me/userinfobot')}>
               @userinfobot
@@ -317,14 +321,12 @@ export default function SettingsScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="off"
-              secureTextEntry
             />
             <TextField
               label="Chat ID"
               value={chatId}
               onChangeText={setChatId}
               placeholder="123456789"
-              keyboardType="numeric"
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="off"
