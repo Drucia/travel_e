@@ -38,6 +38,7 @@ export default function SettingsScreen() {
   const [botToken, setBotToken] = useState(settings.telegramBotToken);
   const [chatId, setChatId] = useState(settings.telegramChatId);
   const [telegramBusy, setTelegramBusy] = useState(false);
+  const [telegramStatus, setTelegramStatus] = useState('');
 
   useEffect(() => {
     setBotToken(settings.telegramBotToken);
@@ -111,6 +112,7 @@ export default function SettingsScreen() {
       return;
     }
     setTelegramBusy(true);
+    setTelegramStatus('Wysyłam wiadomość testową…');
     try {
       await sendTelegramTest(token, id);
       let blobId = settings.telegramBlobId;
@@ -132,6 +134,7 @@ export default function SettingsScreen() {
       const incomplete = await listIncompleteEvents(db);
       await rescheduleAllReminders(next, incomplete);
       await refresh();
+      setTelegramStatus('Wiadomość testowa została wysłana. Sprawdź czat z botem.');
       Alert.alert(
         'Telegram działa',
         blobId
@@ -141,7 +144,9 @@ export default function SettingsScreen() {
           : 'Testowa wiadomość poszła. Przypomnienie dojdzie, gdy apka jest otwarta. Skrzynka do wysyłki w tle nie wstała — spróbuj ponownie za chwilę.'
       );
     } catch (error) {
-      Alert.alert('Nie połączono', error instanceof Error ? error.message : 'Sprawdź token, chat ID i czy bot dostał Start.');
+      const message = error instanceof Error ? error.message : 'Sprawdź token, chat ID i czy bot dostał Start.';
+      setTelegramStatus(`Nie wysłano: ${message}`);
+      Alert.alert('Nie połączono', message);
     } finally {
       setTelegramBusy(false);
     }
@@ -318,6 +323,7 @@ export default function SettingsScreen() {
               value={botToken}
               onChangeText={setBotToken}
               placeholder="123456:ABC..."
+              secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="off"
@@ -336,6 +342,7 @@ export default function SettingsScreen() {
               onPress={() => void saveTelegram()}
               disabled={telegramBusy}
             />
+            {telegramStatus ? <Text style={styles.telegramStatus}>{telegramStatus}</Text> : null}
             {settings.telegramBlobId ? (
               <View style={styles.blobBox}>
                 <Text style={styles.helpTop}>
@@ -440,6 +447,11 @@ const styles = StyleSheet.create({
   },
   telegramFields: {
     gap: 12,
+  },
+  telegramStatus: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
   blobBox: {
     gap: 10,

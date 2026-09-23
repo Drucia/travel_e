@@ -3,12 +3,15 @@ import { Platform } from 'react-native';
 import { getPublicBase } from '@/lib/pwa';
 import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL } from '@/lib/format';
 import type { EventRecord, Settings } from '@/lib/db/types';
+import { createId } from '@/lib/id';
 
-const JSONBLOB = 'https://jsonblob.com/api/jsonBlob';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL?.replace(/\/$/, '') ?? '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const SENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DUE_GRACE_MS = 3 * 60 * 60 * 1000;
 const DUE_AHEAD_MS = 2 * 60 * 1000;
 const TIMER_CAP_MS = 60 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 8000;
 
 export type TelegramReminderItem = {
   id: string;
@@ -97,8 +100,10 @@ async function telegramApi(token: string, method: string, params: Record<string,
 
   let lastError = 'Nie udało się połączyć z Telegramem.';
   for (const url of urls) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: controller.signal });
       const payload = (await response.json()) as TelegramApiResponse & { contents?: string };
       if (typeof payload.contents === 'string') {
         return JSON.parse(payload.contents) as TelegramApiResponse;
@@ -107,7 +112,13 @@ async function telegramApi(token: string, method: string, params: Record<string,
         return payload;
       }
     } catch (error) {
-      lastError = error instanceof Error ? error.message : lastError;
+      lastError = error instanceof DOMException && error.name === 'AbortError'
+        ? 'Telegram nie odpowiedział w ciągu 8 sekund.'
+        : error instanceof Error
+          ? error.message
+          : lastError;
+    } finally {
+      clearTimeout(timeout);
     }
   }
   throw new Error(lastError);
@@ -287,33 +298,77 @@ function sentKey(id: string, fireAt: string): string {
 }
 
 async function createInbox(inbox: TelegramInbox): Promise<string> {
-  const response = await fetch(JSONBLOB, {
+  requireSupabaseConfig();
+  const id = createId();
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/telegram_inboxes`, {
     method: 'POST',
     headers: {
-      Accept: 'application/json',
+      ...supabaseHeaders(),
       'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
     },
-    body: JSON.stringify(inbox),
+    body: JSON.stringify({ id, payload: inbox }),
   });
   if (!response.ok) {
-    throw new Error('Nie udało się utworzyć skrzynki przypomnień.');
+    throw new Error(`Nie udało się utworzyć skrzynki przypomnień (${response.status}).`);
   }
-  const headerId = response.headers.get('x-jsonblob') ?? response.headers.get('X-jsonblob');
-  if (headerId) return headerId;
-  const location = response.headers.get('Location') ?? response.headers.get('location');
-  const fromLocation = location?.split('/').filter(Boolean).pop();
-  if (fromLocation) return fromLocation;
-  throw new Error('Brak identyfikatora skrzynki przypomnień.');
+  return id;
 }
 
 async function readInbox(blobId: string): Promise<TelegramInbox> {
-  const response = await fetch(`${JSONBLOB}/${blobId}`, {
-    headers: { Accept: 'application/json' },
-  });
+  requireSupabaseConfig();
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/telegram_inboxes?id=eq.${encodeURIComponent(blobId)}&select=payload`,
+    {
+      headers: supabaseHeaders(blobId),
+    }
+  );
   if (!response.ok) {
-    throw new Error('Nie udało się odczytać skrzynki przypomnień.');
+    throw new Error(`Nie udało się odczytać skrzynki przypomnień (${response.status}).`);
   }
-  const data = (await response.json()) as Partial<TelegramInbox>;
+  const rows = (await response.json()) as { payload?: Partial<TelegramInbox> }[];
+  const data = rows[0]?.payload;
+  if (!data) {
+    throw new Error('Nie znaleziono skrzynki przypomnień.');
+  }
+  return normalizeInbox(data);
+}
+
+async function writeInbox(blobId: string, inbox: TelegramInbox): Promise<void> {
+  requireSupabaseConfig();
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/telegram_inboxes?id=eq.${encodeURIComponent(blobId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        ...supabaseHeaders(blobId),
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ payload: inbox, updated_at: new Date().toISOString() }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(`Nie udało się zapisać skrzynki przypomnień (${response.status}).`);
+  }
+}
+
+function requireSupabaseConfig(): void {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error('Brak konfiguracji Supabase. Ustaw EXPO_PUBLIC_SUPABASE_URL i EXPO_PUBLIC_SUPABASE_ANON_KEY.');
+  }
+}
+
+function supabaseHeaders(blobId?: string): Record<string, string> {
+  return {
+    Accept: 'application/json',
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    ...(blobId ? { 'x-inbox-id': blobId } : {}),
+  };
+}
+
+function normalizeInbox(data: Partial<TelegramInbox>): TelegramInbox {
   return {
     v: 1,
     botToken: typeof data.botToken === 'string' ? data.botToken : '',
@@ -325,20 +380,6 @@ async function readInbox(blobId: string): Promise<TelegramInbox> {
         })
       : [],
   };
-}
-
-async function writeInbox(blobId: string, inbox: TelegramInbox): Promise<void> {
-  const response = await fetch(`${JSONBLOB}/${blobId}`, {
-    method: 'PUT',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(inbox),
-  });
-  if (!response.ok) {
-    throw new Error('Nie udało się zapisać skrzynki przypomnień.');
-  }
 }
 
 function isReminderItem(value: unknown): value is TelegramReminderItem {

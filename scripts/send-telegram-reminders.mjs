@@ -1,22 +1,35 @@
-const JSONBLOB = 'https://jsonblob.com/api/jsonBlob';
 const DUE_GRACE_MS = 3 * 60 * 60 * 1000;
 const DUE_AHEAD_MS = 2 * 60 * 1000;
 const SENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const blobId = (process.env.REMINDER_BLOB_ID ?? '').trim();
+const supabaseUrl = (process.env.SUPABASE_URL ?? '').replace(/\/$/, '');
+const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
 if (!blobId) {
-  console.log('Brak REMINDER_BLOB_ID — pomijam. Dodaj secret w GitHubie, żeby przypomnienia szły przy zamkniętej apce.');
+  console.log('Brak REMINDER_BLOB_ID — pomijam.');
   process.exit(0);
 }
+if (!supabaseUrl || !serviceRoleKey) throw new Error('Brak konfiguracji Supabase w GitHub Actions.');
 
-const response = await fetch(`${JSONBLOB}/${blobId}`, {
-  headers: { Accept: 'application/json' },
-});
+const headers = {
+  Accept: 'application/json',
+  apikey: serviceRoleKey,
+  Authorization: `Bearer ${serviceRoleKey}`,
+};
+const response = await fetch(
+  `${supabaseUrl}/rest/v1/telegram_inboxes?id=eq.${encodeURIComponent(blobId)}&select=payload`,
+  {
+    headers,
+  }
+);
 if (!response.ok) {
   throw new Error(`Nie udało się odczytać skrzynki (${response.status}).`);
 }
-
-const inbox = await response.json();
+const rows = await response.json();
+const inbox = rows[0]?.payload;
+if (!inbox) {
+  throw new Error('Nie znaleziono skrzynki przypomnień.');
+}
 const token = typeof inbox.botToken === 'string' ? inbox.botToken.trim() : '';
 const chatId = typeof inbox.chatId === 'string' ? inbox.chatId.trim() : '';
 const reminders = Array.isArray(inbox.reminders) ? inbox.reminders : [];
@@ -72,18 +85,19 @@ const nextSent = [...sent, ...newlySent].filter((item) => {
 });
 
 if (newlySent.length > 0 || nextSent.length !== sent.length) {
-  const put = await fetch(`${JSONBLOB}/${blobId}`, {
-    method: 'PUT',
+  const put = await fetch(`${supabaseUrl}/rest/v1/telegram_inboxes?id=eq.${encodeURIComponent(blobId)}`, {
+    method: 'PATCH',
     headers: {
-      Accept: 'application/json',
+      ...headers,
       'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
     },
     body: JSON.stringify({
-      v: 1,
-      botToken: token,
-      chatId,
-      reminders,
-      sent: nextSent,
+      payload: {
+        ...inbox,
+        sent: nextSent,
+      },
+      updated_at: new Date().toISOString(),
     }),
   });
   if (!put.ok) {
