@@ -12,6 +12,7 @@ Wszystko jest **tylko na tym urządzeniu** (SQLite). Nie ma konta, logowania ani
 - **Miejsca i stawki** — np. 30 zł tam i z powrotem
 - **Dashboard** — obecność i kwoty do rozliczenia
 - **Sezony** — aktywny sezon plus historia
+- **Kopia zapasowa** — zapis do pliku JSON (iCloud / Pobrane) oraz automatyczna kopia na urządzeniu
 - **Przypomnienia** — lokalne powiadomienie po godzinie zakończenia (na telefonie, nie w przeglądarce)
 
 ## Uruchomienie
@@ -34,6 +35,19 @@ npm run web       # podgląd w przeglądarce
 ```
 
 Na WSL2 telefon często nie widzi serwera w LAN — wtedy otwórz podgląd w przeglądarce: http://localhost:8081
+
+## PWA (ikona na pulpicie)
+
+Wersja web jest aplikacją PWA.
+
+- **Komputer (Chrome / Edge):** otwórz http://localhost:8081 → ikona instalacji w pasku adresu albo Menu → Zainstaluj aplikację.
+- **iPhone:** otwórz https://drucia.github.io/travel_e/ w Safari → Udostępnij → Dodaj do ekranu początkowego.
+
+Adres na stałe: https://drucia.github.io/travel_e/ (GitHub Pages). Komputer nie musi być włączony.
+
+Instrukcja jest też w Ustawieniach apki.
+
+W **Ustawieniach** jest kopia zapasowa: „Zapisz do pliku” (JSON) i „Wczytaj z pliku”. Na iPhonie w udostępnianiu wybierz Pliki → iCloud Drive. Aplikacja sama też odkłada kopię na urządzeniu przy każdym odświeżeniu danych.
 
 ## Stack
 

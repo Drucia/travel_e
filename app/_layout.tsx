@@ -12,6 +12,7 @@ import { colors } from '@/constants/theme';
 import { AppProvider, useApp } from '@/context/AppContext';
 import { migrateDbIfNeeded } from '@/lib/db/schema';
 import { eventIdFromNotificationData } from '@/lib/notifications';
+import { registerServiceWorker } from '@/lib/pwa';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -32,6 +33,7 @@ export default function RootLayout() {
           options={{ useNewConnection: Platform.OS === 'web' }}>
           <AppProvider>
             <SplashGate />
+            <PwaGate />
             <NotificationGate />
             <StatusBar style="dark" />
             <Stack
@@ -63,6 +65,15 @@ function SplashGate() {
       SplashScreen.hideAsync().catch(() => undefined);
     }
   }, [loaded]);
+
+  return null;
+}
+
+function PwaGate() {
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    registerServiceWorker();
+  }, []);
 
   return null;
 }

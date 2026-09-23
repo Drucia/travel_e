@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { getSettings, listDestinations, listIncompleteEvents, listScheduleRules, listSeasons } from '@/lib/db/queries';
+import { createBackup } from '@/lib/backup';
+import { saveDeviceCopy } from '@/lib/backupStorage';
 import type { Destination, ScheduleRule, Season, Settings } from '@/lib/db/types';
 import { DEFAULT_SETTINGS } from '@/lib/db/types';
 import { rescheduleAllReminders } from '@/lib/notifications';
@@ -41,6 +43,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setSeasons(nextSeasons);
       setDestinations(nextDestinations);
       setScheduleRules(nextRules);
+
+      try {
+        await saveDeviceCopy(await createBackup(db));
+      } catch (error) {
+        console.warn('Nie udało się zapisać kopii na urządzeniu', error);
+      }
 
       if (Platform.OS !== 'web') {
         const incomplete = await listIncompleteEvents(db);

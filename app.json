@@ -22,7 +22,13 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.png",
+      "name": "Ewidencja",
+      "shortName": "Ewidencja",
+      "description": "Ewidencja treningów, meczów i dojazdów",
+      "themeColor": "#F5C400",
+      "backgroundColor": "#F7F6F2",
+      "lang": "pl"
     },
     "plugins": [
       [
@@ -50,10 +56,12 @@
           "color": "#F5C400",
           "defaultChannel": "reminders"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": "/travel_e"
     }
   }
 }

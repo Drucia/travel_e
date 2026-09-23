@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
+import { shouldUseFullScreenWeb } from '@/lib/pwa';
 
 const PHONE_WIDTH = 390;
 const PHONE_HEIGHT = 844;
@@ -10,9 +11,19 @@ const BEZEL_HEIGHT = PHONE_HEIGHT + 52;
 
 export function PhonePreview({ children }: { children: ReactNode }) {
   const scale = usePhoneScale(BEZEL_WIDTH, BEZEL_HEIGHT);
+  const [fullScreen, setFullScreen] = useState(true);
 
-  if (Platform.OS !== 'web') {
-    return children;
+  useEffect(() => {
+    if (Platform.OS !== 'web') return undefined;
+
+    const update = () => setFullScreen(shouldUseFullScreenWeb());
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  if (Platform.OS !== 'web' || fullScreen) {
+    return <View style={styles.full}>{children}</View>;
   }
 
   return (
@@ -65,6 +76,11 @@ function usePhoneScale(width: number, height: number) {
 }
 
 const styles = StyleSheet.create({
+  full: {
+    flex: 1,
+    height: '100%',
+    backgroundColor: colors.background,
+  },
   desktop: {
     flex: 1,
     minHeight: '100%',
