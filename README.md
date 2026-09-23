@@ -45,7 +45,10 @@ Wersja web jest aplikacją PWA.
 
 Adres na stałe: https://drucia.github.io/travel_e/ (GitHub Pages). Komputer nie musi być włączony.
 
-Pierwsze włączenie (jednorazowo w GitHubie): **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `master` / `docs`**. Jeśli repozytorium jest prywatne, GitHub Pages na darmowym koncie wymaga ustawienia repo na **Public** (w apce i tak nie ma Twoich dojazdów — tylko kod).
+Pierwsze włączenie (jednorazowo w GitHubie):
+
+1. Jeśli repo jest prywatne: [Settings](https://github.com/Drucia/travel_e/settings) → **Change repository visibility → Public** (w apce nie ma Twoich dojazdów, tylko kod). Na darmowym koncie Pages działa tylko dla publicznych repo.
+2. [Pages](https://github.com/Drucia/travel_e/settings/pages) → **Source: Deploy from a branch** (nie „GitHub Actions”) → Branch **`master`** / folder **`/docs`** → Save.
 
 Instrukcja jest też w Ustawieniach apki.
 
