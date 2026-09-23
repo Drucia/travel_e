@@ -4,10 +4,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { AppButton, Card, Screen, StatLine } from '@/components/ui';
 import { colors, radius, space } from '@/constants/theme';
-import { useApp } from '@/context/AppContext';
+import { useApp, useDb } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
-import { deleteSeason, getSeason, listEventsBySeason, setActiveSeason } from '@/lib/cloud/queries';
 import { formatDayLong } from '@/lib/dates';
+import { deleteSeason, getSeason, listEventsBySeason, setActiveSeason } from '@/lib/db/queries';
 import type { EventRecord, Season } from '@/lib/db/types';
 import { formatAttendance, formatMoney, labeledCount } from '@/lib/format';
 import { cancelEventReminder } from '@/lib/notifications';
@@ -16,15 +16,16 @@ import { computeStats } from '@/lib/stats';
 export default function SeasonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { destinations, refresh, group, userId } = useApp();
+  const { destinations, refresh } = useApp();
+  const db = useDb();
   const [season, setSeason] = useState<Season | null>(null);
   const [events, setEvents] = useState<EventRecord[]>([]);
 
   const load = useCallback(async () => {
-    if (!id || !group || !userId) return;
-    setSeason(await getSeason(id));
-    setEvents(await listEventsBySeason(group.id, userId, id));
-  }, [group, id, userId]);
+    if (!id) return;
+    setSeason(await getSeason(db, id));
+    setEvents(await listEventsBySeason(db, id));
+  }, [db, id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -35,14 +36,14 @@ export default function SeasonDetailScreen() {
   const stats = useMemo(() => computeStats(events, destinations), [events, destinations]);
 
   async function activate() {
-    if (!id || !group) return;
-    await setActiveSeason(group.id, id);
+    if (!id) return;
+    await setActiveSeason(db, id);
     await refresh();
     await load();
   }
 
   async function confirmDelete() {
-    if (!id || !group) return;
+    if (!id) return;
     const message =
       events.length > 0
         ? `Zostaną też usunięte ${labeledCount(events.length, 'wydarzenie', 'wydarzenia', 'wydarzeń')} z tego sezonu. Tego nie cofniesz.`
@@ -54,7 +55,7 @@ export default function SeasonDetailScreen() {
       for (const event of events) {
         await cancelEventReminder(event.id);
       }
-      await deleteSeason(group.id, id);
+      await deleteSeason(db, id);
       await refresh();
       router.replace('/seasons');
     } catch (error) {

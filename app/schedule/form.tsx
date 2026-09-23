@@ -7,7 +7,7 @@ import { WeekdayPicker } from '@/components/WeekdayPicker';
 import { TimeField } from '@/components/fields';
 import { AppButton, ChoiceGroup, Screen, SectionLabel } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
-import { useApp } from '@/context/AppContext';
+import { useApp, useDb } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
 import { toISODate } from '@/lib/dates';
 import {
@@ -17,7 +17,7 @@ import {
   getScheduleRule,
   listIncompleteEvents,
   updateScheduleRule,
-} from '@/lib/cloud/queries';
+} from '@/lib/db/queries';
 import type { EventType } from '@/lib/db/types';
 import { ensureNotificationSetup, rescheduleAllReminders } from '@/lib/notifications';
 import { rebuildScheduleRuleEvents } from '@/lib/schedule';
@@ -25,7 +25,8 @@ import { rebuildScheduleRuleEvents } from '@/lib/schedule';
 export default function ScheduleFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
-  const { destinations, refresh, group, userId, settings } = useApp();
+  const { destinations, refresh, settings } = useApp();
+  const db = useDb();
   const editing = Boolean(id);
 
   const [type, setType] = useState<EventType>('training');
@@ -39,7 +40,7 @@ export default function ScheduleFormScreen() {
   useEffect(() => {
     if (!id) return;
     void (async () => {
-      const rule = await getScheduleRule(id);
+      const rule = await getScheduleRule(db, id);
       if (!rule) return;
       setType(rule.type);
       setWeekdays(rule.weekdays);
@@ -48,15 +49,11 @@ export default function ScheduleFormScreen() {
       setDestinationId(rule.destinationId);
       setEnabled(rule.enabled);
     })();
-  }, [id]);
+  }, [db, id]);
 
   async function save() {
     if (weekdays.length === 0) {
       Alert.alert('Wybierz dni', 'Zaznacz przynajmniej jeden dzień tygodnia.');
-      return;
-    }
-    if (!group) {
-      Alert.alert('Brak grupy', 'Najpierw dołącz do grupy.');
       return;
     }
     setSaving(true);
@@ -72,15 +69,13 @@ export default function ScheduleFormScreen() {
         destinationId,
         enabled,
       };
-      const ruleId = editing && id ? id : (await createScheduleRule(group.id, payload)).id;
+      const ruleId = editing && id ? id : (await createScheduleRule(db, payload)).id;
       if (editing && id) {
-        await updateScheduleRule(id, payload);
+        await updateScheduleRule(db, id, payload);
       }
-      await rebuildScheduleRuleEvents(group.id, ruleId);
-      if (userId) {
-        const incomplete = await listIncompleteEvents(group.id, userId);
-        await rescheduleAllReminders(settings, incomplete);
-      }
+      await rebuildScheduleRuleEvents(db, ruleId);
+      const incomplete = await listIncompleteEvents(db);
+      await rescheduleAllReminders(settings, incomplete);
       await refresh();
       router.back();
     } catch (error) {
@@ -91,18 +86,16 @@ export default function ScheduleFormScreen() {
   }
 
   async function confirmDelete() {
-    if (!id || !group) return;
+    if (!id) return;
     const ok = await confirmAction(
       'Usunąć z harmonogramu?',
-      'Przyszłe wydarzenia z tej reguły znikną z kalendarza całej grupy.'
+      'Przyszłe wydarzenia z tej reguły znikną z kalendarza.'
     );
     if (!ok) return;
-    await deleteFutureScheduledEvents(id, toISODate(new Date()));
-    await deleteScheduleRule(id);
-    if (userId) {
-      const incomplete = await listIncompleteEvents(group.id, userId);
-      await rescheduleAllReminders(settings, incomplete);
-    }
+    await deleteFutureScheduledEvents(db, id, toISODate(new Date()));
+    await deleteScheduleRule(db, id);
+    const incomplete = await listIncompleteEvents(db);
+    await rescheduleAllReminders(settings, incomplete);
     await refresh();
     router.back();
   }

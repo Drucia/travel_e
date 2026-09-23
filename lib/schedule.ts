@@ -1,24 +1,26 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
+
 import { mondayWeekdayIndex, parseISODate, toISODate } from '@/lib/dates';
 import {
   deleteFutureScheduledEvents,
   getActiveSeason,
   insertScheduledEvents,
-  listCloudEvents,
+  listEventsBetween,
   listScheduleRules,
-} from '@/lib/cloud/queries';
+} from '@/lib/db/queries';
 
-export async function generateScheduleEvents(groupId: string): Promise<number> {
-  const season = await getActiveSeason(groupId);
+export async function generateScheduleEvents(db: SQLiteDatabase): Promise<number> {
+  const season = await getActiveSeason(db);
   if (!season) return 0;
 
-  const rules = (await listScheduleRules(groupId)).filter((rule) => rule.enabled && rule.weekdays.length > 0);
+  const rules = (await listScheduleRules(db)).filter((rule) => rule.enabled && rule.weekdays.length > 0);
   if (rules.length === 0) return 0;
 
   const today = toISODate(new Date());
   const start = today > season.startDate ? today : season.startDate;
   if (season.endDate < start) return 0;
 
-  const existing = await listCloudEvents(groupId, start, season.endDate);
+  const existing = await listEventsBetween(db, start, season.endDate);
   const keys = new Set(existing.map((event) => `${event.date}|${event.type}|${event.startTime}`));
 
   const drafts = [];
@@ -48,11 +50,11 @@ export async function generateScheduleEvents(groupId: string): Promise<number> {
     cursor.setDate(cursor.getDate() + 1);
   }
 
-  await insertScheduledEvents(groupId, drafts);
+  await insertScheduledEvents(db, drafts);
   return drafts.length;
 }
 
-export async function rebuildScheduleRuleEvents(groupId: string, ruleId: string): Promise<void> {
-  await deleteFutureScheduledEvents(ruleId, toISODate(new Date()));
-  await generateScheduleEvents(groupId);
+export async function rebuildScheduleRuleEvents(db: SQLiteDatabase, ruleId: string): Promise<void> {
+  await deleteFutureScheduledEvents(db, ruleId, toISODate(new Date()));
+  await generateScheduleEvents(db);
 }

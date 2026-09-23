@@ -286,6 +286,33 @@ export async function createEvent(db: SQLiteDatabase, draft: EventDraft): Promis
   return created;
 }
 
+export async function insertScheduledEvents(db: SQLiteDatabase, drafts: EventDraft[]): Promise<void> {
+  if (drafts.length === 0) return;
+  const now = nowIso();
+  await db.withTransactionAsync(async () => {
+    for (const draft of drafts) {
+      await db.runAsync(
+        `INSERT INTO events (
+          id, season_id, date, start_time, end_time, type, destination_id,
+          notes, completed, source, schedule_rule_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+        createId(),
+        draft.seasonId,
+        draft.date,
+        draft.startTime,
+        draft.endTime,
+        draft.type,
+        draft.destinationId,
+        draft.notes,
+        draft.source ?? 'schedule',
+        draft.scheduleRuleId ?? null,
+        now,
+        now
+      );
+    }
+  });
+}
+
 export async function updateEvent(
   db: SQLiteDatabase,
   id: string,
@@ -377,23 +404,6 @@ export async function getSettings(db: SQLiteDatabase): Promise<Settings> {
       map.defaultDurationMinutes ?? DEFAULT_SETTINGS.defaultDurationMinutes
     ),
   };
-}
-
-export async function getActiveGroupId(db: SQLiteDatabase): Promise<string | null> {
-  const row = await db.getFirstAsync<{ value: string }>('SELECT value FROM settings WHERE key = ?', 'activeGroupId');
-  return row?.value ? row.value : null;
-}
-
-export async function setActiveGroupId(db: SQLiteDatabase, id: string | null): Promise<void> {
-  if (!id) {
-    await db.runAsync('DELETE FROM settings WHERE key = ?', 'activeGroupId');
-    return;
-  }
-  await db.runAsync(
-    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-    'activeGroupId',
-    id
-  );
 }
 
 export async function updateSettings(

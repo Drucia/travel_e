@@ -1,19 +1,18 @@
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { AppButton, Banner, Card, EmptyState, Screen } from '@/components/ui';
+import { AppButton, Card, EmptyState, Screen } from '@/components/ui';
 import { colors, radius, space } from '@/constants/theme';
 import { useApp } from '@/context/AppContext';
 import { formatDayLong } from '@/lib/dates';
 
 export default function SeasonsScreen() {
-  const { seasons, cloudError } = useApp();
+  const { seasons } = useApp();
   const router = useRouter();
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {cloudError ? <Banner text={cloudError} /> : null}
         <Text style={styles.hint}>Historia sezonów zostaje zachowana po starcie nowego sezonu.</Text>
 
         {seasons.length === 0 ? (
