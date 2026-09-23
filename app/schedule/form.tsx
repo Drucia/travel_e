@@ -4,12 +4,12 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Vi
 
 import { DestinationRow } from '@/components/DestinationRow';
 import { WeekdayPicker } from '@/components/WeekdayPicker';
-import { TimeField, TextField } from '@/components/fields';
+import { DateField, TextField, TimeField } from '@/components/fields';
 import { AppButton, ChoiceGroup, EmptyState, FormSwitch, Screen, SectionLabel } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
 import { useApp, useDb } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
-import { toISODate } from '@/lib/dates';
+import { currentSeasonWindow, formatDayLong, toISODate } from '@/lib/dates';
 import {
   createScheduleRule,
   deleteFutureScheduledEvents,
@@ -25,7 +25,7 @@ import { rebuildScheduleRuleEvents } from '@/lib/schedule';
 export default function ScheduleFormScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
-  const { destinations, refresh, settings } = useApp();
+  const { destinations, refresh, settings, activeSeason } = useApp();
   const db = useDb();
   const editing = Boolean(id);
 
@@ -36,9 +36,12 @@ export default function ScheduleFormScreen() {
   const [destinationId, setDestinationId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [includePast, setIncludePast] = useState(true);
+  const seasonWindow = activeSeason ?? currentSeasonWindow();
+  const [rangeStart, setRangeStart] = useState(seasonWindow.startDate);
+  const [rangeEnd, setRangeEnd] = useState(seasonWindow.endDate);
   const [saving, setSaving] = useState(false);
   const knownDestinationIds = useRef<Set<string> | null>(null);
+  const rangeSeeded = useRef(Boolean(activeSeason));
 
   useEffect(() => {
     if (knownDestinationIds.current === null) {
@@ -49,6 +52,13 @@ export default function ScheduleFormScreen() {
     knownDestinationIds.current = new Set(destinations.map((item) => item.id));
     if (added) setDestinationId(added.id);
   }, [destinations]);
+
+  useEffect(() => {
+    if (!activeSeason || rangeSeeded.current) return;
+    rangeSeeded.current = true;
+    setRangeStart(activeSeason.startDate);
+    setRangeEnd(activeSeason.endDate);
+  }, [activeSeason]);
 
   useEffect(() => {
     if (!id) return;
@@ -70,6 +80,18 @@ export default function ScheduleFormScreen() {
       Alert.alert('Wybierz dni', 'Zaznacz przynajmniej jeden dzień tygodnia.');
       return;
     }
+    if (!activeSeason) {
+      Alert.alert('Brak sezonu', 'Najpierw ustaw aktywny sezon.');
+      return;
+    }
+    if (!rangeStart || !rangeEnd) {
+      Alert.alert('Wybierz zakres', 'Podaj od kiedy i do kiedy dodać treningi w kalendarzu.');
+      return;
+    }
+    if (rangeEnd < rangeStart) {
+      Alert.alert('Niepoprawne daty', 'Data zakończenia musi być późniejsza niż data startu.');
+      return;
+    }
     setSaving(true);
     try {
       if (enabled) {
@@ -88,7 +110,7 @@ export default function ScheduleFormScreen() {
       if (editing && id) {
         await updateScheduleRule(db, id, payload);
       }
-      await rebuildScheduleRuleEvents(db, ruleId, { includePast });
+      await rebuildScheduleRuleEvents(db, ruleId, { fromDate: rangeStart, toDate: rangeEnd });
       const incomplete = await listIncompleteEvents(db);
       await rescheduleAllReminders(settings, incomplete);
       await refresh();
@@ -182,16 +204,19 @@ export default function ScheduleFormScreen() {
           </Text>
 
           <FormSwitch label="Włączone" value={enabled} onValueChange={setEnabled} />
-          <FormSwitch
-            label="Dopisz też minione dni sezonu"
-            value={includePast}
-            onValueChange={setIncludePast}
-            hint="Gdy włączone, treningi z harmonogramu pojawią się w kalendarzu od początku aktywnego sezonu, nie tylko od dziś."
-          />
+
+          <DateField label="Dodaj w kalendarzu od" value={rangeStart} onChange={setRangeStart} />
+          <DateField label="Dodaj w kalendarzu do" value={rangeEnd} onChange={setRangeEnd} />
+          <Text style={styles.help}>
+            Domyślnie cały aktywny sezon
+            {activeSeason
+              ? ` (${activeSeason.name}: ${formatDayLong(activeSeason.startDate)} – ${formatDayLong(activeSeason.endDate)})`
+              : ''}
+            . Możesz zwęzić zakres, np. tylko od dziś.
+          </Text>
 
           <Text style={styles.help}>
-            Aplikacja doda te treningi i mecze do kalendarza do końca aktywnego sezonu. Powiadomienie
-            przyjdzie zaraz po godzinie zakończenia, żeby uzupełnić dojazd.
+            Powiadomienie przyjdzie zaraz po godzinie zakończenia, żeby uzupełnić dojazd.
           </Text>
 
           <AppButton label={saving ? 'Zapisywanie…' : 'Zapisz harmonogram'} onPress={() => void save()} disabled={saving} />

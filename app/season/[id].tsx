@@ -153,7 +153,6 @@ export default function SeasonDetailScreen() {
             value={formatAttendance(stats.attendedMatches, stats.matches)}
           />
           <StatLine label="Wyjazdy" value={String(stats.trips)} />
-          <StatLine label="Wyjazdy samochodem" value={String(stats.carTrips)} />
           <StatLine label="Łączna kwota" value={formatMoney(stats.amount)} accent />
         </Card>
 
@@ -167,7 +166,7 @@ export default function SeasonDetailScreen() {
                 <View>
                   <Text style={styles.placeName}>{place.name}</Text>
                   <Text style={styles.placeMeta}>
-                    {labeledCount(place.trips, 'wyjazd', 'wyjazdy', 'wyjazdów')} · samochód: {place.carTrips}
+                    {labeledCount(place.trips, 'wyjazd', 'wyjazdy', 'wyjazdów')}
                   </Text>
                 </View>
                 <Text style={styles.placeKm}>{formatMoney(place.amount)}</Text>

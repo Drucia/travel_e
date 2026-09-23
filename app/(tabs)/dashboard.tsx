@@ -60,10 +60,6 @@ export default function DashboardScreen() {
             value={formatAttendance(stats.attendedMatches, stats.matches)}
           />
           <StatLine label="Wyjazdy" value={labeledCount(stats.trips, 'wyjazd', 'wyjazdy', 'wyjazdów')} />
-          <StatLine
-            label="Wyjazdy samochodem"
-            value={labeledCount(stats.carTrips, 'wyjazd', 'wyjazdy', 'wyjazdów')}
-          />
         </Card>
 
         <Card>

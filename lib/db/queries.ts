@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { createId, nowIso } from '@/lib/id';
+import { mondayWeekdayIndex, parseISODate } from '@/lib/dates';
 import { DEFAULT_SETTINGS, type CompletionDraft, type Destination, type DistanceType, type EventDraft, type EventRecord, type EventType, type ScheduleRule, type Season, type Settings, type Transport, type TripDirection } from '@/lib/db/types';
 
 type SeasonRow = {
@@ -107,6 +108,8 @@ function mapEvent(row: EventRow): EventRecord {
     absenceNote: row.absence_note,
     completed: row.completed === 1,
     notificationId: row.notification_id,
+    source: row.source === 'schedule' ? 'schedule' : 'manual',
+    scheduleRuleId: row.schedule_rule_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     destinationName: row.destination_name ?? null,
@@ -333,9 +336,21 @@ export async function updateEvent(
   id: string,
   draft: EventDraft
 ): Promise<EventRecord> {
+  const existing = await getEvent(db, id);
+  const slotChanged =
+    Boolean(existing) &&
+    (existing!.date !== draft.date ||
+      existing!.startTime !== draft.startTime ||
+      existing!.type !== draft.type);
+
+  if (existing && slotChanged) {
+    await skipScheduleSlot(db, existing);
+  }
+
   await db.runAsync(
     `UPDATE events
-     SET season_id = ?, date = ?, start_time = ?, end_time = ?, type = ?, destination_id = ?, notes = ?, updated_at = ?
+     SET season_id = ?, date = ?, start_time = ?, end_time = ?, type = ?, destination_id = ?, notes = ?,
+         source = ?, schedule_rule_id = ?, updated_at = ?
      WHERE id = ?`,
     draft.seasonId,
     draft.date,
@@ -344,6 +359,8 @@ export async function updateEvent(
     draft.type,
     draft.destinationId,
     draft.notes,
+    slotChanged ? 'manual' : (existing?.source ?? 'manual'),
+    slotChanged ? null : (existing?.scheduleRuleId ?? null),
     nowIso(),
     id
   );
@@ -404,6 +421,10 @@ export async function completeEvent(
 }
 
 export async function deleteEvent(db: SQLiteDatabase, id: string): Promise<void> {
+  const existing = await getEvent(db, id);
+  if (existing) {
+    await skipScheduleSlot(db, existing);
+  }
   await db.runAsync('DELETE FROM events WHERE id = ?', id);
 }
 
@@ -431,6 +452,9 @@ export async function getSettings(db: SQLiteDatabase): Promise<Settings> {
     defaultDurationMinutes: Number(
       map.defaultDurationMinutes ?? DEFAULT_SETTINGS.defaultDurationMinutes
     ),
+    telegramBotToken: map.telegramBotToken ?? DEFAULT_SETTINGS.telegramBotToken,
+    telegramChatId: map.telegramChatId ?? DEFAULT_SETTINGS.telegramChatId,
+    telegramBlobId: map.telegramBlobId ?? DEFAULT_SETTINGS.telegramBlobId,
   };
 }
 
@@ -446,6 +470,9 @@ export async function updateSettings(
     reminderOffsetMinutes: String(next.reminderOffsetMinutes),
     kilometerRate: String(next.kilometerRate),
     defaultDurationMinutes: String(next.defaultDurationMinutes),
+    telegramBotToken: next.telegramBotToken,
+    telegramChatId: next.telegramChatId,
+    telegramBlobId: next.telegramBlobId,
   };
   for (const [key, value] of Object.entries(values)) {
     await db.runAsync(
@@ -566,18 +593,78 @@ export async function updateScheduleRule(
 }
 
 export async function deleteScheduleRule(db: SQLiteDatabase, id: string): Promise<void> {
+  await db.runAsync('DELETE FROM schedule_skips WHERE schedule_rule_id = ?', id);
   await db.runAsync('DELETE FROM schedule_rules WHERE id = ?', id);
 }
 
 export async function deleteFutureScheduledEvents(
   db: SQLiteDatabase,
   ruleId: string,
-  fromDate: string
+  fromDate: string,
+  toDate?: string
+): Promise<void> {
+  const rule = await getScheduleRule(db, ruleId);
+  const rows = toDate
+    ? await db.getAllAsync<{ id: string; date: string }>(
+        `SELECT id, date FROM events WHERE schedule_rule_id = ? AND completed = 0 AND date >= ? AND date <= ?`,
+        ruleId,
+        fromDate,
+        toDate
+      )
+    : await db.getAllAsync<{ id: string; date: string }>(
+        `SELECT id, date FROM events WHERE schedule_rule_id = ? AND completed = 0 AND date >= ?`,
+        ruleId,
+        fromDate
+      );
+  for (const row of rows) {
+    const weekday = mondayWeekdayIndex(parseISODate(row.date));
+    const stillOnRuleDay = Boolean(rule?.weekdays.includes(weekday));
+    if (stillOnRuleDay) {
+      await db.runAsync('DELETE FROM events WHERE id = ?', row.id);
+    } else {
+      await db.runAsync(
+        `UPDATE events SET source = 'manual', schedule_rule_id = NULL, updated_at = ? WHERE id = ?`,
+        nowIso(),
+        row.id
+      );
+    }
+  }
+}
+
+export async function listScheduleSkipKeys(db: SQLiteDatabase): Promise<Set<string>> {
+  const rows = await db.getAllAsync<{ schedule_rule_id: string; date: string }>(
+    'SELECT schedule_rule_id, date FROM schedule_skips'
+  );
+  return new Set(rows.map((row) => `${row.schedule_rule_id}|${row.date}`));
+}
+
+async function skipScheduleSlot(db: SQLiteDatabase, event: EventRecord): Promise<void> {
+  if (event.scheduleRuleId) {
+    await insertScheduleSkip(db, event.scheduleRuleId, event.date);
+  }
+  const rules = (await listScheduleRules(db)).filter((rule) => rule.enabled);
+  const weekday = mondayWeekdayIndex(parseISODate(event.date));
+  for (const rule of rules) {
+    if (
+      rule.weekdays.includes(weekday) &&
+      rule.type === event.type &&
+      rule.startTime === event.startTime
+    ) {
+      await insertScheduleSkip(db, rule.id, event.date);
+    }
+  }
+}
+
+async function insertScheduleSkip(
+  db: SQLiteDatabase,
+  ruleId: string,
+  date: string
 ): Promise<void> {
   await db.runAsync(
-    `DELETE FROM events
-     WHERE schedule_rule_id = ? AND completed = 0 AND date >= ?`,
+    `INSERT OR IGNORE INTO schedule_skips (id, schedule_rule_id, date, created_at) VALUES (?, ?, ?, ?)`,
+    createId(),
     ruleId,
-    fromDate
+    date,
+    nowIso()
   );
 }

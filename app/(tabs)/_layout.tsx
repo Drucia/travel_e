@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhoneFrameContext } from '@/components/PhonePreview';
 import { colors } from '@/constants/theme';
 
-const TAB_CONTENT_HEIGHT = 64;
+const TAB_CONTENT_HEIGHT = 72;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -29,21 +29,23 @@ export default function TabLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           height: TAB_CONTENT_HEIGHT + bottomPad,
-          paddingTop: 8,
+          paddingTop: 6,
           paddingBottom: bottomPad,
           overflow: 'visible',
         },
         tabBarItemStyle: {
           paddingTop: 0,
-          paddingBottom: 4,
+          paddingBottom: 6,
           overflow: 'visible',
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          lineHeight: 14,
+          lineHeight: 16,
           fontWeight: '600',
           marginTop: 2,
           marginBottom: 0,
+          paddingBottom: 1,
+          overflow: 'visible',
         },
         tabBarIconStyle: {
           marginTop: 0,

@@ -5,6 +5,12 @@ import * as Notifications from 'expo-notifications';
 import { combineDateTime } from '@/lib/dates';
 import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL } from '@/lib/format';
 import type { EventRecord, Settings } from '@/lib/db/types';
+import {
+  eventReminderUrl,
+  reminderMessage,
+  syncTelegramReminders,
+  type TelegramReminderItem,
+} from '@/lib/telegram';
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -36,7 +42,7 @@ export function getReminderAt(event: EventRecord, settings: Settings): Date {
 }
 
 export async function ensureNotificationSetup(): Promise<boolean> {
-  if (Platform.OS === 'web') return false;
+  if (Platform.OS === 'web') return true;
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
@@ -107,18 +113,37 @@ export async function rescheduleAllReminders(settings: Settings, events: EventRe
   const upcoming = events
     .filter((event) => !event.completed)
     .map((event) => ({ event, fireAt: getReminderAt(event, settings) }))
-    .filter((item) => item.fireAt.getTime() > Date.now())
-    .sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime())
-    .slice(0, 40);
+    .filter((item) => item.fireAt.getTime() > Date.now() - 3 * 60 * 60 * 1000)
+    .sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
 
-  const upcomingIds = new Set(upcoming.map((item) => item.event.id));
-  for (const event of events) {
-    if (!upcomingIds.has(event.id)) {
-      await cancelEventReminder(event.id);
+  const nativeUpcoming = upcoming.filter((item) => item.fireAt.getTime() > Date.now()).slice(0, 40);
+  const nativeIds = new Set(nativeUpcoming.map((item) => item.event.id));
+  if (Platform.OS !== 'web') {
+    for (const event of events) {
+      if (!nativeIds.has(event.id)) {
+        await cancelEventReminder(event.id);
+      }
+    }
+    for (const item of nativeUpcoming) {
+      await scheduleEventReminder(item.event, settings);
     }
   }
-  for (const item of upcoming) {
-    await scheduleEventReminder(item.event, settings);
+
+  const telegramItems: TelegramReminderItem[] = upcoming.slice(0, 40).map((item) => {
+    const url = eventReminderUrl(item.event.id);
+    const message = reminderMessage(item.event, url);
+    return {
+      id: item.event.id,
+      fireAt: item.fireAt.toISOString(),
+      title: message.title,
+      body: message.body,
+      url,
+    };
+  });
+  try {
+    await syncTelegramReminders(settings, telegramItems);
+  } catch (error) {
+    console.warn('Nie udało się zsynchronizować przypomnień Telegram', error);
   }
 }
 

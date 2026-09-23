@@ -1,0 +1,26 @@
+name: Telegram reminders
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-reminders
+  cancel-in-progress: true
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Send due Telegram reminders
+        env:
+          REMINDER_BLOB_ID: ${{ secrets.REMINDER_BLOB_ID }}
+        run: node scripts/send-telegram-reminders.mjs

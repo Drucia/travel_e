@@ -7,6 +7,7 @@ export type BackupFile = {
   seasons: Record<string, unknown>[];
   destinations: Record<string, unknown>[];
   scheduleRules: Record<string, unknown>[];
+  scheduleSkips: Record<string, unknown>[];
   events: Record<string, unknown>[];
   settings: { key: string; value: string }[];
 };
@@ -48,7 +49,17 @@ export function parseBackup(raw: string): BackupFile {
   ) {
     throw new Error('W kopii brakuje tabel.');
   }
-  return data as BackupFile;
+  return {
+    app: data.app,
+    version: data.version,
+    exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : '',
+    seasons: data.seasons,
+    destinations: data.destinations,
+    scheduleRules: data.scheduleRules,
+    scheduleSkips: Array.isArray(data.scheduleSkips) ? data.scheduleSkips : [],
+    events: data.events,
+    settings: data.settings,
+  };
 }
 
 export function deviceBackupInfo(backup: BackupFile | null): DeviceBackupInfo | null {

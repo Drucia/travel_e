@@ -41,6 +41,8 @@ export type EventRecord = {
   absenceNote: string | null;
   completed: boolean;
   notificationId: string | null;
+  source: 'manual' | 'schedule';
+  scheduleRuleId: string | null;
   createdAt: string;
   updatedAt: string;
   destinationName: string | null;
@@ -65,6 +67,9 @@ export type Settings = {
   reminderOffsetMinutes: number;
   kilometerRate: number;
   defaultDurationMinutes: number;
+  telegramBotToken: string;
+  telegramChatId: string;
+  telegramBlobId: string;
 };
 
 export type EventDraft = {
@@ -95,4 +100,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderOffsetMinutes: 0,
   kilometerRate: 1,
   defaultDurationMinutes: 90,
+  telegramBotToken: '',
+  telegramChatId: '',
+  telegramBlobId: '',
 };

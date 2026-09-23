@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Platform } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 
 import { getSettings, listDestinations, listIncompleteEvents, listScheduleRules, listSeasons } from '@/lib/db/queries';
@@ -50,10 +49,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.warn('Nie udało się zapisać kopii na urządzeniu', error);
       }
 
-      if (Platform.OS !== 'web') {
-        const incomplete = await listIncompleteEvents(db);
-        await rescheduleAllReminders(nextSettings, incomplete);
-      }
+      const incomplete = await listIncompleteEvents(db);
+      await rescheduleAllReminders(nextSettings, incomplete);
     } catch (error) {
       console.warn('Nie udało się odświeżyć danych', error);
     } finally {

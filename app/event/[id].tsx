@@ -10,7 +10,7 @@ import { useApp, useDb } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
 import { formatDayLong, formatTimeRange } from '@/lib/dates';
 import { completeEvent, deleteEvent, getEvent, updateEventNotes } from '@/lib/db/queries';
-import type { EventRecord, Transport, TripDirection } from '@/lib/db/types';
+import type { EventRecord, TripDirection } from '@/lib/db/types';
 import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL, formatMoney, tripAmount } from '@/lib/format';
 import { cancelEventReminder, syncEventReminder } from '@/lib/notifications';
 
@@ -23,7 +23,6 @@ export default function EventDetailScreen() {
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [attended, setAttended] = useState<boolean | null>(null);
   const [traveled, setTraveled] = useState<boolean | null>(null);
-  const [transport, setTransport] = useState<Transport | null>(null);
   const [destinationId, setDestinationId] = useState<string | null>(null);
   const [tripDirection, setTripDirection] = useState<TripDirection | null>('round_trip');
   const [absenceNote, setAbsenceNote] = useState('');
@@ -37,7 +36,6 @@ export default function EventDetailScreen() {
     if (!next) return;
     setAttended(next.attended);
     setTraveled(next.traveled);
-    setTransport(next.transport);
     setDestinationId(next.destinationId);
     setTripDirection(next.tripDirection ?? (next.traveled ? 'round_trip' : null));
     setAbsenceNote(next.absenceNote ?? '');
@@ -57,7 +55,6 @@ export default function EventDetailScreen() {
     (attended === true && traveled === false) ||
     (attended === true &&
       traveled === true &&
-      transport !== null &&
       destinationId !== null &&
       tripDirection !== null);
   const canSave = canSaveCompletion || notesChanged;
@@ -71,7 +68,7 @@ export default function EventDetailScreen() {
             attended,
             absenceNote: absenceNote.trim() || null,
             traveled,
-            transport,
+            transport: traveled ? 'car' : null,
             destinationId,
             tripDirection,
             notes: notesValue,
@@ -89,7 +86,10 @@ export default function EventDetailScreen() {
 
   async function confirmDelete() {
     if (!id) return;
-    const ok = await confirmAction('Usunąć wydarzenie?', 'Zniknie z kalendarza. Tej operacji nie można cofnąć.');
+    const ok = await confirmAction(
+      'Usunąć wydarzenie?',
+      'Zniknie z kalendarza. Jeśli pochodziło z harmonogramu, ten dzień nie wróci sam z powrotem.'
+    );
     if (!ok) return;
     await cancelEventReminder(id);
     await deleteEvent(db, id);
@@ -138,7 +138,6 @@ export default function EventDetailScreen() {
               setAttended(next);
               if (!next) {
                 setTraveled(null);
-                setTransport(null);
                 setTripDirection(null);
               }
             }}
@@ -167,7 +166,6 @@ export default function EventDetailScreen() {
                   const next = value === 'yes';
                   setTraveled(next);
                   if (!next) {
-                    setTransport(null);
                     setTripDirection(null);
                   } else if (!tripDirection) {
                     setTripDirection('round_trip');
@@ -179,16 +177,6 @@ export default function EventDetailScreen() {
 
           {attended === true && traveled === true ? (
             <>
-              <SectionLabel>Środek transportu</SectionLabel>
-              <ChoiceGroup
-                options={[
-                  { label: 'Samochód', value: 'car' },
-                  { label: 'Inny', value: 'other' },
-                ]}
-                value={transport}
-                onChange={setTransport}
-              />
-
               <SectionLabel>Dokąd dojechałam?</SectionLabel>
               <View style={styles.list}>
                 {destinations.map((destination) => (

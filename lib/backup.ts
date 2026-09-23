@@ -21,10 +21,11 @@ export {
 export type { BackupFile, DeviceBackupInfo };
 
 export async function createBackup(db: SQLiteDatabase): Promise<BackupFile> {
-  const [seasons, destinations, scheduleRules, events, settings] = await Promise.all([
+  const [seasons, destinations, scheduleRules, scheduleSkips, events, settings] = await Promise.all([
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM seasons ORDER BY start_date'),
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM destinations ORDER BY name COLLATE NOCASE'),
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM schedule_rules ORDER BY type, start_time'),
+    db.getAllAsync<Record<string, unknown>>('SELECT * FROM schedule_skips ORDER BY date'),
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM events ORDER BY date, start_time'),
     db.getAllAsync<{ key: string; value: string }>('SELECT key, value FROM settings ORDER BY key'),
   ]);
@@ -36,6 +37,7 @@ export async function createBackup(db: SQLiteDatabase): Promise<BackupFile> {
     seasons,
     destinations,
     scheduleRules,
+    scheduleSkips,
     events,
     settings,
   };
@@ -47,6 +49,7 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
     await db.withTransactionAsync(async () => {
       await db.execAsync(`
         DELETE FROM events;
+        DELETE FROM schedule_skips;
         DELETE FROM schedule_rules;
         DELETE FROM destinations;
         DELETE FROM seasons;
@@ -96,6 +99,16 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           int(row.enabled, 1),
           str(row.created_at, nowIso()),
           str(row.updated_at, nowIso())
+        );
+      }
+
+      for (const row of backup.scheduleSkips) {
+        await db.runAsync(
+          `INSERT INTO schedule_skips (id, schedule_rule_id, date, created_at) VALUES (?, ?, ?, ?)`,
+          str(row.id),
+          str(row.schedule_rule_id),
+          str(row.date),
+          str(row.created_at, nowIso())
         );
       }
 

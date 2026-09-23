@@ -1,5 +1,5 @@
 import { WEEKDAYS_PL } from '@/lib/dates';
-import type { EventType, Transport, TripDirection } from '@/lib/db/types';
+import type { EventType, TripDirection } from '@/lib/db/types';
 
 export const EVENT_TYPE_LABEL: Record<EventType, string> = {
   training: 'Trening',
@@ -9,11 +9,6 @@ export const EVENT_TYPE_LABEL: Record<EventType, string> = {
 export const EVENT_TYPE_EMOJI: Record<EventType, string> = {
   training: '🏐',
   match: '🏆',
-};
-
-export const TRANSPORT_LABEL: Record<Transport, string> = {
-  car: 'Samochód',
-  other: 'Inny',
 };
 
 export const TRIP_DIRECTION_LABEL: Record<TripDirection, string> = {
