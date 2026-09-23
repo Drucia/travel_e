@@ -1,44 +1,68 @@
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+    Alert,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    View,
+} from "react-native";
 
-import { AppButton, Card, Screen, SettingRow } from '@/components/ui';
-import { TextField } from '@/components/fields';
-import { PwaInstallHint } from '@/components/PwaInstallHint';
-import { colors, radius, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
-import { createBackup, deviceBackupInfo, parseBackup, restoreBackup, type DeviceBackupInfo } from '@/lib/backup';
+import { TextField } from "@/components/fields";
+import { PwaInstallHint } from "@/components/PwaInstallHint";
+import { AppButton, Card, Screen, SettingRow } from "@/components/ui";
+import { colors, radius, space } from "@/constants/theme";
+import { useApp, useDb } from "@/context/AppContext";
 import {
-  downloadOrShareBackup,
-  loadDeviceCopy,
-  pickBackupFile,
-  saveDeviceCopy,
-} from '@/lib/backupStorage';
-import { confirmAction } from '@/lib/confirm';
-import { formatTimeRange } from '@/lib/dates';
-import { listIncompleteEvents, updateSettings } from '@/lib/db/queries';
-import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL, formatWeekdays } from '@/lib/format';
-import { ensureNotificationSetup, rescheduleAllReminders } from '@/lib/notifications';
+    createBackup,
+    deviceBackupInfo,
+    parseBackup,
+    restoreBackup,
+    type DeviceBackupInfo,
+} from "@/lib/backup";
 import {
-  ensureTelegramInbox,
-  isLikelyBotToken,
-  isLikelyChatId,
-  parseBotToken,
-  parseChatId,
-  sendTelegramTest,
-  telegramConfigured,
-} from '@/lib/telegram';
+    downloadOrShareBackup,
+    loadDeviceCopy,
+    pickBackupFile,
+    saveDeviceCopy,
+} from "@/lib/backupStorage";
+import { confirmAction } from "@/lib/confirm";
+import { formatTimeRange } from "@/lib/dates";
+import { listIncompleteEvents, updateSettings } from "@/lib/db/queries";
+import {
+    EVENT_TYPE_EMOJI,
+    EVENT_TYPE_LABEL,
+    formatWeekdays,
+} from "@/lib/format";
+import {
+    ensureNotificationSetup,
+    rescheduleAllReminders,
+} from "@/lib/notifications";
+import {
+    ensureTelegramInbox,
+    isLikelyBotToken,
+    isLikelyChatId,
+    parseBotToken,
+    parseChatId,
+    sendTelegramTest,
+    telegramConfigured,
+} from "@/lib/telegram";
 
 export default function SettingsScreen() {
   const db = useDb();
-  const { settings, activeSeason, destinations, scheduleRules, refresh } = useApp();
+  const { settings, activeSeason, destinations, scheduleRules, refresh } =
+    useApp();
   const router = useRouter();
   const [deviceCopy, setDeviceCopy] = useState<DeviceBackupInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [botToken, setBotToken] = useState(settings.telegramBotToken);
   const [chatId, setChatId] = useState(settings.telegramChatId);
   const [telegramBusy, setTelegramBusy] = useState(false);
-  const [telegramStatus, setTelegramStatus] = useState('');
+  const [telegramStatus, setTelegramStatus] = useState("");
 
   useEffect(() => {
     setBotToken(settings.telegramBotToken);
@@ -59,22 +83,25 @@ export default function SettingsScreen() {
 
   async function toggleReminders(enabled: boolean) {
     if (enabled) {
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         const ready = telegramConfigured({
           telegramBotToken: botToken,
           telegramChatId: chatId,
         });
         if (!ready) {
           Alert.alert(
-            'Połącz Telegram',
-            'Na stronie iPhone nie wyśle sam lokalnego powiadomienia. Wpisz token bota i chat ID poniżej, potem wyślij test.'
+            "Połącz Telegram",
+            "Na stronie iPhone nie wyśle sam lokalnego powiadomienia. Wpisz token bota i chat ID poniżej, potem wyślij test.",
           );
           return;
         }
       } else {
         const allowed = await ensureNotificationSetup();
         if (!allowed) {
-          Alert.alert('Brak zgody', 'Włącz powiadomienia w ustawieniach telefonu, aby otrzymywać przypomnienia.');
+          Alert.alert(
+            "Brak zgody",
+            "Włącz powiadomienia w ustawieniach telefonu, aby otrzymywać przypomnienia.",
+          );
           return;
         }
       }
@@ -87,15 +114,18 @@ export default function SettingsScreen() {
 
   async function copyText(value: string) {
     try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
         await navigator.clipboard.writeText(value);
-        Alert.alert('Skopiowane', 'Wklej to w GitHubie jako secret REMINDER_BLOB_ID.');
+        Alert.alert(
+          "Skopiowane",
+          "Wklej to w GitHubie jako secret REMINDER_BLOB_ID.",
+        );
         return;
       }
     } catch {
       // fall through
     }
-    Alert.alert('Skopiuj ręcznie', value);
+    Alert.alert("Skopiuj ręcznie", value);
   }
 
   async function saveTelegram() {
@@ -104,15 +134,21 @@ export default function SettingsScreen() {
     setBotToken(token);
     setChatId(id);
     if (!isLikelyBotToken(token)) {
-      Alert.alert('Token', 'To nie wygląda na token z BotFather. Wklej całość, z dwukropkiem w środku.');
+      Alert.alert(
+        "Token",
+        "To nie wygląda na token z BotFather. Wklej całość, z dwukropkiem w środku.",
+      );
       return;
     }
     if (!isLikelyChatId(id)) {
-      Alert.alert('Chat ID', 'To musi być liczba z @userinfobot, np. 123456789 — nie nazwa bota.');
+      Alert.alert(
+        "Chat ID",
+        "To musi być liczba z @userinfobot, np. 123456789 — nie nazwa bota.",
+      );
       return;
     }
     setTelegramBusy(true);
-    setTelegramStatus('Wysyłam wiadomość testową…');
+    setTelegramStatus("Wysyłam wiadomość testową…");
     try {
       await sendTelegramTest(token, id);
       let blobId = settings.telegramBlobId;
@@ -123,7 +159,7 @@ export default function SettingsScreen() {
           telegramChatId: id,
         });
       } catch (inboxError) {
-        console.warn('Nie udało się zapisać skrzynki przypomnień', inboxError);
+        console.warn("Nie udało się zapisać skrzynki przypomnień", inboxError);
       }
       const next = await updateSettings(db, {
         reminderEnabled: true,
@@ -134,19 +170,24 @@ export default function SettingsScreen() {
       const incomplete = await listIncompleteEvents(db);
       await rescheduleAllReminders(next, incomplete);
       await refresh();
-      setTelegramStatus('Wiadomość testowa została wysłana. Sprawdź czat z botem.');
+      setTelegramStatus(
+        "Wiadomość testowa została wysłana. Sprawdź czat z botem.",
+      );
       Alert.alert(
-        'Telegram działa',
+        "Telegram działa",
         blobId
-          ? Platform.OS === 'web'
-            ? 'Testowa wiadomość poszła. Żeby przypomnienie przyszło przy zablokowanym telefonie, dodaj w GitHubie secret REMINDER_BLOB_ID (przycisk poniżej).'
-            : 'Testowa wiadomość poszła. Na tym telefonie zostają też lokalne powiadomienia.'
-          : 'Testowa wiadomość poszła. Przypomnienie dojdzie, gdy apka jest otwarta. Skrzynka do wysyłki w tle nie wstała — spróbuj ponownie za chwilę.'
+          ? Platform.OS === "web"
+            ? "Testowa wiadomość poszła. Żeby przypomnienie przyszło przy zablokowanym telefonie, dodaj w GitHubie secret REMINDER_BLOB_ID (przycisk poniżej)."
+            : "Testowa wiadomość poszła. Na tym telefonie zostają też lokalne powiadomienia."
+          : "Testowa wiadomość poszła. Przypomnienie dojdzie, gdy apka jest otwarta. Skrzynka do wysyłki w tle nie wstała — spróbuj ponownie za chwilę.",
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Sprawdź token, chat ID i czy bot dostał Start.';
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Sprawdź token, chat ID i czy bot dostał Start.";
       setTelegramStatus(`Nie wysłano: ${message}`);
-      Alert.alert('Nie połączono', message);
+      Alert.alert("Nie połączono", message);
     } finally {
       setTelegramBusy(false);
     }
@@ -160,18 +201,20 @@ export default function SettingsScreen() {
       await downloadOrShareBackup(backup);
       await reloadDeviceCopy();
     } catch (error) {
-      Alert.alert('Nie udało się zapisać pliku', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+      Alert.alert(
+        "Nie udało się zapisać pliku",
+        error instanceof Error ? error.message : "Spróbuj ponownie.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  async function applyBackup(backup: ReturnType<typeof parseBackup>, warning: string) {
-    const ok = await confirmAction(
-      'Wczytać kopię?',
-      warning,
-      'Wczytaj'
-    );
+  async function applyBackup(
+    backup: ReturnType<typeof parseBackup>,
+    warning: string,
+  ) {
+    const ok = await confirmAction("Wczytać kopię?", warning, "Wczytaj");
     if (!ok) return;
     setBusy(true);
     try {
@@ -179,9 +222,12 @@ export default function SettingsScreen() {
       await saveDeviceCopy(backup);
       await refresh();
       await reloadDeviceCopy();
-      Alert.alert('Gotowe', 'Ewidencja została wczytana z kopii.');
+      Alert.alert("Gotowe", "Ewidencja została wczytana z kopii.");
     } catch (error) {
-      Alert.alert('Nie udało się wczytać', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+      Alert.alert(
+        "Nie udało się wczytać",
+        error instanceof Error ? error.message : "Spróbuj ponownie.",
+      );
     } finally {
       setBusy(false);
     }
@@ -194,10 +240,15 @@ export default function SettingsScreen() {
       const backup = parseBackup(raw);
       await applyBackup(
         backup,
-        'To zastąpi sezony, miejsca, kalendarz i dojazdy danymi z pliku. Tego nie cofniesz, chyba że masz inną kopię.'
+        "To zastąpi sezony, miejsca, kalendarz i dojazdy danymi z pliku. Tego nie cofniesz, chyba że masz inną kopię.",
       );
     } catch (error) {
-      Alert.alert('Nie udało się odczytać pliku', error instanceof Error ? error.message : 'Wybierz plik JSON z Ewidencji.');
+      Alert.alert(
+        "Nie udało się odczytać pliku",
+        error instanceof Error
+          ? error.message
+          : "Wybierz plik JSON z Ewidencji.",
+      );
     }
   }
 
@@ -205,44 +256,55 @@ export default function SettingsScreen() {
     try {
       const backup = await loadDeviceCopy();
       if (!backup) {
-        Alert.alert('Brak kopii', 'Nie ma jeszcze automatycznej kopii na tym urządzeniu.');
+        Alert.alert(
+          "Brak kopii",
+          "Nie ma jeszcze automatycznej kopii na tym urządzeniu.",
+        );
         return;
       }
       await applyBackup(
         backup,
-        `Przywrócę kopię z ${new Date(backup.exportedAt).toLocaleString('pl-PL')}. Bieżące dane zostaną zastąpione.`
+        `Przywrócę kopię z ${new Date(backup.exportedAt).toLocaleString("pl-PL")}. Bieżące dane zostaną zastąpione.`,
       );
     } catch (error) {
-      Alert.alert('Nie udało się przywrócić', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+      Alert.alert(
+        "Nie udało się przywrócić",
+        error instanceof Error ? error.message : "Spróbuj ponownie.",
+      );
     }
   }
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <PwaInstallHint />
         <Card>
           <Text style={styles.section}>Sezony</Text>
           <SettingRow
             label="Aktywny sezon"
-            value={activeSeason?.name ?? 'Brak'}
-            onPress={() => router.push('/seasons')}
+            value={activeSeason?.name ?? "Brak"}
+            onPress={() => router.push("/seasons")}
           />
         </Card>
 
         <Card>
           <Text style={styles.section}>Harmonogram</Text>
           <Text style={styles.helpTop}>
-            Ustaw stałe dni treningów i meczów. Aplikacja sama doda je w kalendarzu i przypomni po
-            zakończeniu, żeby uzupełnić dojazd.
+            Ustaw stałe dni treningów i meczów. Aplikacja sama doda je w
+            kalendarzu i przypomni po zakończeniu, żeby uzupełnić dojazd.
           </Text>
           {destinations.length === 0 ? (
             <View style={styles.emptyPlace}>
-              <Text style={styles.empty}>Nie masz jeszcze miejsc. Dodaj je, zanim ustawisz stałe dni.</Text>
+              <Text style={styles.empty}>
+                Nie masz jeszcze miejsc. Dodaj je, zanim ustawisz stałe dni.
+              </Text>
               <AppButton
                 label="Dodaj miejsce"
                 variant="secondary"
-                onPress={() => router.push('/destinations/new')}
+                onPress={() => router.push("/destinations/new")}
               />
             </View>
           ) : null}
@@ -251,27 +313,40 @@ export default function SettingsScreen() {
           ) : (
             <View style={styles.rules}>
               {scheduleRules.map((rule) => {
-                const place = destinations.find((item) => item.id === rule.destinationId);
+                const place = destinations.find(
+                  (item) => item.id === rule.destinationId,
+                );
                 return (
                   <Pressable
                     key={rule.id}
                     onPress={() => router.push(`/schedule/${rule.id}`)}
-                    style={({ pressed }) => [styles.rule, pressed && styles.pressed]}>
+                    style={({ pressed }) => [
+                      styles.rule,
+                      pressed && styles.pressed,
+                    ]}
+                  >
                     <Text style={styles.ruleTitle}>
-                      {EVENT_TYPE_EMOJI[rule.type]} {EVENT_TYPE_LABEL[rule.type]}
-                      {rule.enabled ? '' : ' · wyłączone'}
+                      {EVENT_TYPE_EMOJI[rule.type]}{" "}
+                      {EVENT_TYPE_LABEL[rule.type]}
+                      {rule.enabled ? "" : " · wyłączone"}
                     </Text>
                     <Text style={styles.ruleMeta}>
-                      {formatWeekdays(rule.weekdays)} · {formatTimeRange(rule.startTime, rule.endTime)}
-                      {place ? ` · ${place.name}` : ''}
+                      {formatWeekdays(rule.weekdays)} ·{" "}
+                      {formatTimeRange(rule.startTime, rule.endTime)}
+                      {place ? ` · ${place.name}` : ""}
                     </Text>
-                    {rule.notes ? <Text style={styles.ruleNote}>{rule.notes}</Text> : null}
+                    {rule.notes ? (
+                      <Text style={styles.ruleNote}>{rule.notes}</Text>
+                    ) : null}
                   </Pressable>
                 );
               })}
             </View>
           )}
-          <AppButton label="Dodaj dni" onPress={() => router.push('/schedule/new')} />
+          <AppButton
+            label="Dodaj dni"
+            onPress={() => router.push("/schedule/new")}
+          />
         </Card>
 
         <Card>
@@ -279,11 +354,11 @@ export default function SettingsScreen() {
           <SettingRow
             label="Zapisane miejsca"
             value={String(destinations.length)}
-            onPress={() => router.push('/destinations')}
+            onPress={() => router.push("/destinations")}
           />
           <Text style={styles.help}>
-            Stawkę ustawiasz przy miejscu, np. Gniechowice 30 zł tam i z powrotem. Jedna strona liczy się
-            jako połowa.
+            Stawkę ustawiasz przy miejscu, np. Gniechowice 30 zł tam i z
+            powrotem. Jedna strona liczy się jako połowa.
           </Text>
         </Card>
 
@@ -298,24 +373,31 @@ export default function SettingsScreen() {
             />
           </SettingRow>
           <Text style={styles.help}>
-            {Platform.OS === 'web'
-              ? 'W PWA na iPhonie przypomnienie przychodzi na Telegram, zaraz po końcu treningu lub meczu. Link w wiadomości otworzy formularz dojazdu.'
-              : 'Powiadomienie przyjdzie zaraz po godzinie zakończenia treningu lub meczu i otworzy formularz dojazdu. Na stronie możesz dostać to samo na Telegram.'}
+            {Platform.OS === "web"
+              ? "W PWA na iPhonie przypomnienie przychodzi na Telegram, zaraz po końcu treningu lub meczu. Link w wiadomości otworzy formularz dojazdu."
+              : "Powiadomienie przyjdzie zaraz po godzinie zakończenia treningu lub meczu i otworzy formularz dojazdu. Na stronie możesz dostać to samo na Telegram."}
           </Text>
 
           <Text style={styles.subSection}>Telegram</Text>
           <Text style={styles.helpTop}>
-            1. W Telegramie otwórz{' '}
-            <Text style={styles.link} onPress={() => void Linking.openURL('https://t.me/BotFather')}>
+            1. W Telegramie otwórz{" "}
+            <Text
+              style={styles.link}
+              onPress={() => void Linking.openURL("https://t.me/BotFather")}
+            >
               @BotFather
-            </Text>
-            {' '}→ /newbot → skopiuj token.{'\n'}
-            2. Wejdź do <Text style={styles.link}>swojego</Text> bota (nie BotFather) i naciśnij Start.{'\n'}
-            3. Otwórz{' '}
-            <Text style={styles.link} onPress={() => void Linking.openURL('https://t.me/userinfobot')}>
+            </Text>{" "}
+            → /newbot → skopiuj token.{"\n"}
+            2. Wejdź do <Text style={styles.link}>swojego</Text> bota (nie
+            BotFather) i naciśnij Start.{"\n"}
+            3. Otwórz{" "}
+            <Text
+              style={styles.link}
+              onPress={() => void Linking.openURL("https://t.me/userinfobot")}
+            >
               @userinfobot
-            </Text>
-            {' '}i skopiuj Id.
+            </Text>{" "}
+            i skopiuj Id.
           </Text>
           <View style={styles.telegramFields}>
             <TextField
@@ -338,16 +420,19 @@ export default function SettingsScreen() {
               autoComplete="off"
             />
             <AppButton
-              label={telegramBusy ? 'Łączę…' : 'Wyślij test na Telegram'}
+              label={telegramBusy ? "Łączę…" : "Wyślij test na Telegram"}
               onPress={() => void saveTelegram()}
               disabled={telegramBusy}
             />
-            {telegramStatus ? <Text style={styles.telegramStatus}>{telegramStatus}</Text> : null}
+            {telegramStatus ? (
+              <Text style={styles.telegramStatus}>{telegramStatus}</Text>
+            ) : null}
             {settings.telegramBlobId ? (
               <View style={styles.blobBox}>
                 <Text style={styles.helpTop}>
-                  Ostatni krok, żeby działało przy zablokowanym telefonie: GitHub → Settings → Secrets and
-                  variables → Actions → New repository secret. Nazwa: REMINDER_BLOB_ID. Wartość poniżej.
+                  Ostatni krok, żeby działało przy zablokowanym telefonie:
+                  GitHub → Settings → Secrets and variables → Actions → New
+                  repository secret. Nazwa: REMINDER_BLOB_ID. Wartość poniżej.
                   Nie wysyłaj tego nikomu.
                 </Text>
                 <Text selectable style={styles.blobId}>
@@ -362,7 +447,9 @@ export default function SettingsScreen() {
                   label="Otwórz sekrety GitHub"
                   variant="ghost"
                   onPress={() =>
-                    void Linking.openURL('https://github.com/Drucia/travel_e/settings/secrets/actions')
+                    void Linking.openURL(
+                      "https://github.com/Drucia/travel_e/settings/secrets/actions",
+                    )
                   }
                 />
               </View>
@@ -373,20 +460,21 @@ export default function SettingsScreen() {
         <Card>
           <Text style={styles.section}>Kopia zapasowa</Text>
           <Text style={styles.helpTop}>
-            Zapis do pliku (JSON) możesz wrzucić na iCloud, Dysk Google albo wysłać sobie mailem. Na
-            urządzeniu trzymana jest też automatyczna kopia na wypadek awarii.
+            Zapis do pliku (JSON) możesz wrzucić na iCloud, Dysk Google albo
+            wysłać sobie mailem. Na urządzeniu trzymana jest też automatyczna
+            kopia na wypadek awarii.
           </Text>
           <SettingRow
             label="Kopia na urządzeniu"
             value={
               deviceCopy
-                ? `${new Date(deviceCopy.exportedAt).toLocaleString('pl-PL')} · ${deviceCopy.events} wyd.`
-                : 'Brak'
+                ? `${new Date(deviceCopy.exportedAt).toLocaleString("pl-PL")} · ${deviceCopy.events} wyd.`
+                : "Brak"
             }
           />
           <View style={styles.backupActions}>
             <AppButton
-              label={busy ? 'Chwileczkę…' : 'Zapisz do pliku'}
+              label={busy ? "Chwileczkę…" : "Zapisz do pliku"}
               onPress={() => void exportToFile()}
               disabled={busy}
             />
@@ -418,7 +506,7 @@ const styles = StyleSheet.create({
   section: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 8,
   },
   helpTop: {
@@ -436,14 +524,14 @@ const styles = StyleSheet.create({
   subSection: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
     marginTop: 18,
     marginBottom: 8,
   },
   link: {
     color: colors.text,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
   telegramFields: {
     gap: 12,
@@ -459,7 +547,7 @@ const styles = StyleSheet.create({
   blobId: {
     color: colors.text,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     backgroundColor: colors.background,
     borderRadius: radius.md,
     padding: 12,
@@ -491,7 +579,7 @@ const styles = StyleSheet.create({
   ruleTitle: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   ruleMeta: {
     color: colors.muted,

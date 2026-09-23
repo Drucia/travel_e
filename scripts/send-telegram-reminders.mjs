@@ -2,11 +2,11 @@ const DUE_AHEAD_MS = 2 * 60 * 1000;
 const SENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const REMINDER_REPEAT_MS = 24 * 60 * 60 * 1000;
 
-const blobId = (process.env.REMINDER_BLOB_ID ?? "").trim().replaceAll(" ", "");
+const blobId = (process.env.REMINDER_BLOB_ID ?? "").split(/\s+/).join("");
 const supabaseUrl = (process.env.SUPABASE_URL ?? "").trim().replace(/\/$/, "");
 const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "")
-  .trim()
-  .replaceAll(" ", "");
+  .split(/\s+/)
+  .join("");
 if (!blobId) {
   console.log("Brak REMINDER_BLOB_ID — pomijam.");
   process.exit(0);
