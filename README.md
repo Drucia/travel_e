@@ -48,7 +48,7 @@ Adres na stałe: https://drucia.github.io/travel_e/ (GitHub Pages). Komputer nie
 Pierwsze włączenie (jednorazowo w GitHubie):
 
 1. Jeśli repo jest prywatne: [Settings](https://github.com/Drucia/travel_e/settings) → **Change repository visibility → Public** (w apce nie ma Twoich dojazdów, tylko kod). Na darmowym koncie Pages działa tylko dla publicznych repo.
-2. [Pages](https://github.com/Drucia/travel_e/settings/pages) → **Source: Deploy from a branch** (nie „GitHub Actions”) → Branch **`master`** / folder **`/docs`** → Save.
+2. [Pages](https://github.com/Drucia/travel_e/settings/pages) → **Source: GitHub Actions** → Save. Workflow sam zbuduje i opublikuje aplikację po każdym pushu do `master`.
 
 Instrukcja jest też w Ustawieniach apki.
 
