@@ -1,4 +1,3 @@
-const DUE_GRACE_MS = 3 * 60 * 60 * 1000;
 const DUE_AHEAD_MS = 2 * 60 * 1000;
 const SENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const REMINDER_REPEAT_MS = 24 * 60 * 60 * 1000;
@@ -64,7 +63,9 @@ const due = reminders.filter((item) => {
     return false;
   const at = Date.parse(item.fireAt);
   return (
-    Number.isFinite(at) && at <= now + DUE_AHEAD_MS && at >= now - DUE_GRACE_MS
+    Number.isFinite(at) &&
+    at <= now + DUE_AHEAD_MS &&
+    at >= now - SENT_MAX_AGE_MS
   );
 });
 
