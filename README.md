@@ -45,6 +45,8 @@ Wersja web jest aplikacją PWA.
 
 Adres na stałe: https://drucia.github.io/travel_e/ (GitHub Pages). Komputer nie musi być włączony.
 
+Pierwsze włączenie (jednorazowo w GitHubie): **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: `master` / `docs`**. Jeśli repozytorium jest prywatne, GitHub Pages na darmowym koncie wymaga ustawienia repo na **Public** (w apce i tak nie ma Twoich dojazdów — tylko kod).
+
 Instrukcja jest też w Ustawieniach apki.
 
 W **Ustawieniach** jest kopia zapasowa: „Zapisz do pliku” (JSON) i „Wczytaj z pliku”. Na iPhonie w udostępnianiu wybierz Pliki → iCloud Drive. Aplikacja sama też odkłada kopię na urządzeniu przy każdym odświeżeniu danych.
