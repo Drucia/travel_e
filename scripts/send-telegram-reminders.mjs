@@ -1,6 +1,7 @@
 const DUE_GRACE_MS = 3 * 60 * 60 * 1000;
 const DUE_AHEAD_MS = 2 * 60 * 1000;
 const SENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const REMINDER_REPEAT_MS = 24 * 60 * 60 * 1000;
 
 const blobId = (process.env.REMINDER_BLOB_ID ?? "").trim().replaceAll(" ", "");
 const supabaseUrl = (process.env.SUPABASE_URL ?? "").trim().replace(/\/$/, "");
@@ -46,13 +47,16 @@ if (!token || !chatId) {
 }
 
 const now = Date.now();
-const sentKeys = new Set(
+const sentAtByKey = new Map(
   sent
     .filter(
       (item) =>
         item && typeof item.id === "string" && typeof item.fireAt === "string",
     )
-    .map((item) => `${item.id}:${item.fireAt}`),
+    .map((item) => [
+      `${item.id}:${item.fireAt}`,
+      Date.parse(item.sentAt ?? item.fireAt),
+    ]),
 );
 
 const due = reminders.filter((item) => {
@@ -67,7 +71,8 @@ const due = reminders.filter((item) => {
 const newlySent = [];
 for (const item of due) {
   const key = `${item.id}:${item.fireAt}`;
-  if (sentKeys.has(key)) continue;
+  const lastSentAt = sentAtByKey.get(key);
+  if (lastSentAt && now - lastSentAt < REMINDER_REPEAT_MS) continue;
   const text = [item.title, "", item.body, item.url].filter(Boolean).join("\n");
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   const sendResponse = await fetch(url, {
@@ -86,8 +91,12 @@ for (const item of due) {
     );
     continue;
   }
-  sentKeys.add(key);
-  newlySent.push({ id: item.id, fireAt: item.fireAt });
+  sentAtByKey.set(key, now);
+  newlySent.push({
+    id: item.id,
+    fireAt: item.fireAt,
+    sentAt: new Date(now).toISOString(),
+  });
 }
 
 const cutoff = now - SENT_MAX_AGE_MS;

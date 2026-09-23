@@ -13,6 +13,7 @@ const DUE_GRACE_MS = 3 * 60 * 60 * 1000;
 const DUE_AHEAD_MS = 2 * 60 * 1000;
 const TIMER_CAP_MS = 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 8000;
+const REMINDER_REPEAT_MS = 24 * 60 * 60 * 1000;
 
 export type TelegramReminderItem = {
   id: string;
@@ -27,7 +28,7 @@ type TelegramInbox = {
   botToken: string;
   chatId: string;
   reminders: TelegramReminderItem[];
-  sent: { id: string; fireAt: string }[];
+  sent: { id: string; fireAt: string; sentAt?: string }[];
 };
 
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -259,22 +260,26 @@ async function flushDueTelegramReminders(
   });
   if (due.length === 0) return;
 
-  const sentKeys = new Set<string>();
+  const sentAtByKey = new Map<string, number>();
   if (settings.telegramBlobId.trim()) {
     try {
       const inbox = await readInbox(settings.telegramBlobId.trim());
       for (const item of inbox.sent) {
-        sentKeys.add(sentKey(item.id, item.fireAt));
+        const sentAt = Date.parse(item.sentAt ?? item.fireAt);
+        if (Number.isFinite(sentAt)) {
+          sentAtByKey.set(sentKey(item.id, item.fireAt), sentAt);
+        }
       }
     } catch {
       // Sending still works from the device even if the inbox is down.
     }
   }
 
-  const newlySent: { id: string; fireAt: string }[] = [];
+  const newlySent: { id: string; fireAt: string; sentAt?: string }[] = [];
   for (const item of due) {
     const key = sentKey(item.id, item.fireAt);
-    if (sentKeys.has(key)) continue;
+    const lastSentAt = sentAtByKey.get(key);
+    if (lastSentAt && now - lastSentAt < REMINDER_REPEAT_MS) continue;
     const text = `${item.title}\n\n${item.body}\n${item.url}`;
     try {
       const ok = await sendTelegramMessage(
@@ -283,8 +288,12 @@ async function flushDueTelegramReminders(
         text,
       );
       if (ok) {
-        sentKeys.add(key);
-        newlySent.push({ id: item.id, fireAt: item.fireAt });
+        sentAtByKey.set(key, now);
+        newlySent.push({
+          id: item.id,
+          fireAt: item.fireAt,
+          sentAt: new Date(now).toISOString(),
+        });
       }
     } catch (error) {
       console.warn("Nie wysłano przypomnienia Telegram", error);
@@ -448,11 +457,12 @@ function normalizeInbox(data: Partial<TelegramInbox>): TelegramInbox {
       ? data.reminders.filter(isReminderItem)
       : [],
     sent: Array.isArray(data.sent)
-      ? data.sent.filter((item): item is { id: string; fireAt: string } => {
+      ? data.sent.filter((item): item is { id: string; fireAt: string; sentAt?: string } => {
           return Boolean(
             item &&
             typeof item.id === "string" &&
-            typeof item.fireAt === "string",
+            typeof item.fireAt === "string" &&
+            (item.sentAt === undefined || typeof item.sentAt === "string"),
           );
         })
       : [],
