@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/theme';
 import { shouldUseFullScreenWeb } from '@/lib/pwa';
@@ -8,6 +9,9 @@ const PHONE_WIDTH = 390;
 const PHONE_HEIGHT = 844;
 const BEZEL_WIDTH = PHONE_WIDTH + 16;
 const BEZEL_HEIGHT = PHONE_HEIGHT + 52;
+const FRAME_BOTTOM_INSET = 22;
+
+export const PhoneFrameContext = createContext(false);
 
 export function PhonePreview({ children }: { children: ReactNode }) {
   const scale = usePhoneScale(BEZEL_WIDTH, BEZEL_HEIGHT);
@@ -23,35 +27,47 @@ export function PhonePreview({ children }: { children: ReactNode }) {
   }, []);
 
   if (Platform.OS !== 'web' || fullScreen) {
-    return <View style={styles.full}>{children}</View>;
+    return (
+      <PhoneFrameContext.Provider value={false}>
+        <View style={styles.full}>{children}</View>
+      </PhoneFrameContext.Provider>
+    );
   }
 
   return (
-    <View style={styles.desktop}>
-      <Text style={styles.caption}>Podgląd telefonu · 390×844</Text>
-      <View style={{ width: BEZEL_WIDTH * scale, height: BEZEL_HEIGHT * scale }}>
-        <View
-          style={[
-            styles.scaled,
-            {
-              transform: [{ scale }],
-              transformOrigin: 'top left',
-            },
-          ]}>
-          <View style={styles.bezel}>
-            <View style={styles.statusBar}>
-              <Text style={styles.statusTime}>9:41</Text>
-              <View style={styles.island} />
-              <Text style={styles.statusMeta}>▮▮▮ 100%</Text>
+    <PhoneFrameContext.Provider value={true}>
+      <View style={styles.desktop}>
+        <Text style={styles.caption}>Podgląd telefonu · 390×844</Text>
+        <View style={{ width: BEZEL_WIDTH * scale, height: BEZEL_HEIGHT * scale }}>
+          <View
+            style={[
+              styles.scaled,
+              {
+                transform: [{ scale }],
+                transformOrigin: 'top left',
+              },
+            ]}>
+            <View style={styles.bezel}>
+              <View style={styles.statusBar}>
+                <Text style={styles.statusTime}>9:41</Text>
+                <View style={styles.island} />
+                <Text style={styles.statusMeta}>▮▮▮ 100%</Text>
+              </View>
+              <View style={styles.screen}>
+                <SafeAreaProvider
+                  initialMetrics={{
+                    frame: { x: 0, y: 0, width: PHONE_WIDTH, height: PHONE_HEIGHT },
+                    insets: { top: 0, right: 0, bottom: FRAME_BOTTOM_INSET, left: 0 },
+                  }}>
+                  <View style={styles.appRoot}>{children}</View>
+                </SafeAreaProvider>
+              </View>
+              <View style={styles.homeIndicator} />
             </View>
-            <View style={styles.screen}>
-              <View style={styles.appRoot}>{children}</View>
-            </View>
-            <View style={styles.homeIndicator} />
           </View>
         </View>
       </View>
-    </View>
+    </PhoneFrameContext.Provider>
   );
 }
 
@@ -79,6 +95,7 @@ const styles = StyleSheet.create({
   full: {
     flex: 1,
     height: '100%',
+    maxHeight: '100%',
     backgroundColor: colors.background,
   },
   desktop: {
@@ -145,7 +162,6 @@ const styles = StyleSheet.create({
   appRoot: {
     flex: 1,
     height: '100%',
-    overflow: 'hidden',
   },
   homeIndicator: {
     alignSelf: 'center',

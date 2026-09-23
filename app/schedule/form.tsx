@@ -1,11 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DestinationRow } from '@/components/DestinationRow';
 import { WeekdayPicker } from '@/components/WeekdayPicker';
-import { TimeField } from '@/components/fields';
-import { AppButton, ChoiceGroup, Screen, SectionLabel } from '@/components/ui';
+import { TimeField, TextField } from '@/components/fields';
+import { AppButton, ChoiceGroup, EmptyState, FormSwitch, Screen, SectionLabel } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
 import { useApp, useDb } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
@@ -34,8 +34,21 @@ export default function ScheduleFormScreen() {
   const [startTime, setStartTime] = useState('18:00');
   const [endTime, setEndTime] = useState<string | null>('19:30');
   const [destinationId, setDestinationId] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
   const [enabled, setEnabled] = useState(true);
+  const [includePast, setIncludePast] = useState(true);
   const [saving, setSaving] = useState(false);
+  const knownDestinationIds = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (knownDestinationIds.current === null) {
+      knownDestinationIds.current = new Set(destinations.map((item) => item.id));
+      return;
+    }
+    const added = destinations.find((item) => !knownDestinationIds.current?.has(item.id));
+    knownDestinationIds.current = new Set(destinations.map((item) => item.id));
+    if (added) setDestinationId(added.id);
+  }, [destinations]);
 
   useEffect(() => {
     if (!id) return;
@@ -47,6 +60,7 @@ export default function ScheduleFormScreen() {
       setStartTime(rule.startTime);
       setEndTime(rule.endTime);
       setDestinationId(rule.destinationId);
+      setNotes(rule.notes ?? '');
       setEnabled(rule.enabled);
     })();
   }, [db, id]);
@@ -67,13 +81,14 @@ export default function ScheduleFormScreen() {
         startTime,
         endTime,
         destinationId,
+        notes: notes.trim() || null,
         enabled,
       };
       const ruleId = editing && id ? id : (await createScheduleRule(db, payload)).id;
       if (editing && id) {
         await updateScheduleRule(db, id, payload);
       }
-      await rebuildScheduleRuleEvents(db, ruleId);
+      await rebuildScheduleRuleEvents(db, ruleId, { includePast });
       const incomplete = await listIncompleteEvents(db);
       await rescheduleAllReminders(settings, incomplete);
       await refresh();
@@ -122,27 +137,57 @@ export default function ScheduleFormScreen() {
 
           <SectionLabel>Miejsce (opcjonalnie)</SectionLabel>
           <View style={styles.list}>
-            {destinations.map((destination) => (
-              <DestinationRow
-                key={destination.id}
-                destination={destination}
-                selected={destination.id === destinationId}
-                onPress={() =>
-                  setDestinationId((current) => (current === destination.id ? null : destination.id))
-                }
-              />
-            ))}
+            {destinations.length === 0 ? (
+              <View style={styles.emptyPlace}>
+                <EmptyState
+                  title="Nie ma jeszcze miejsc"
+                  hint="Dodaj halę albo boisko, żeby przypisać je do tych dni."
+                />
+                <AppButton
+                  label="Dodaj miejsce"
+                  onPress={() => router.push('/destinations/new')}
+                />
+              </View>
+            ) : (
+              <>
+                {destinations.map((destination) => (
+                  <DestinationRow
+                    key={destination.id}
+                    destination={destination}
+                    selected={destination.id === destinationId}
+                    onPress={() =>
+                      setDestinationId((current) => (current === destination.id ? null : destination.id))
+                    }
+                  />
+                ))}
+                <AppButton
+                  label="Dodaj miejsce"
+                  variant="secondary"
+                  onPress={() => router.push('/destinations/new')}
+                />
+              </>
+            )}
           </View>
 
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Włączone</Text>
-            <Switch
-              value={enabled}
-              onValueChange={setEnabled}
-              trackColor={{ true: colors.accent, false: colors.border }}
-              thumbColor="#fff"
-            />
-          </View>
+          <TextField
+            label="Notatka do tych dni"
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="np. zbiórka 17:45, inny dojazd"
+            multiline
+          />
+          <Text style={styles.help}>
+            Ta sama notatka pojawi się przy każdym treningu albo meczu z tej reguły. W pojedynczym
+            wydarzeniu możesz ją potem zmienić.
+          </Text>
+
+          <FormSwitch label="Włączone" value={enabled} onValueChange={setEnabled} />
+          <FormSwitch
+            label="Dopisz też minione dni sezonu"
+            value={includePast}
+            onValueChange={setIncludePast}
+            hint="Gdy włączone, treningi z harmonogramu pojawią się w kalendarzu od początku aktywnego sezonu, nie tylko od dziś."
+          />
 
           <Text style={styles.help}>
             Aplikacja doda te treningi i mecze do kalendarza do końca aktywnego sezonu. Powiadomienie
@@ -167,16 +212,13 @@ const styles = StyleSheet.create({
   list: {
     gap: 8,
   },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 52,
-  },
-  switchLabel: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
+  emptyPlace: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.md,
+    gap: 8,
   },
   help: {
     color: colors.muted,

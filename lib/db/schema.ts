@@ -5,7 +5,7 @@ import { currentSeasonWindow } from '@/lib/dates';
 import { createId, nowIso } from '@/lib/id';
 import { DEFAULT_SETTINGS } from '@/lib/db/types';
 
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON');
@@ -78,6 +78,7 @@ async function ensureCoreSchema(db: SQLiteDatabase): Promise<void> {
       start_time TEXT NOT NULL,
       end_time TEXT,
       destination_id TEXT,
+      notes TEXT,
       enabled INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
@@ -113,6 +114,11 @@ async function ensureMissingColumns(db: SQLiteDatabase): Promise<void> {
   }
   if (!eventColumns.has('schedule_rule_id')) {
     await db.execAsync('ALTER TABLE events ADD COLUMN schedule_rule_id TEXT');
+  }
+
+  const scheduleColumns = await columnNames(db, 'schedule_rules');
+  if (!scheduleColumns.has('notes')) {
+    await db.execAsync('ALTER TABLE schedule_rules ADD COLUMN notes TEXT');
   }
 }
 

@@ -157,6 +157,21 @@ export async function createSeason(
   return created;
 }
 
+export async function updateSeason(
+  db: SQLiteDatabase,
+  id: string,
+  input: { name: string; startDate: string; endDate: string }
+): Promise<void> {
+  await db.runAsync(
+    `UPDATE seasons SET name = ?, start_date = ?, end_date = ?, updated_at = ? WHERE id = ?`,
+    input.name.trim(),
+    input.startDate,
+    input.endDate,
+    nowIso(),
+    id
+  );
+}
+
 export async function setActiveSeason(db: SQLiteDatabase, id: string): Promise<void> {
   const now = nowIso();
   await db.withTransactionAsync(async () => {
@@ -337,6 +352,17 @@ export async function updateEvent(
   return updated;
 }
 
+export async function updateEventNotes(
+  db: SQLiteDatabase,
+  id: string,
+  notes: string | null
+): Promise<EventRecord> {
+  await db.runAsync('UPDATE events SET notes = ?, updated_at = ? WHERE id = ?', notes, nowIso(), id);
+  const updated = await getEvent(db, id);
+  if (!updated) throw new Error('Nie znaleziono wydarzenia');
+  return updated;
+}
+
 export async function completeEvent(
   db: SQLiteDatabase,
   id: string,
@@ -358,6 +384,7 @@ export async function completeEvent(
       destination_id = ?,
       trip_direction = ?,
       absence_note = ?,
+      notes = ?,
       completed = 1,
       updated_at = ?
      WHERE id = ?`,
@@ -367,6 +394,7 @@ export async function completeEvent(
     destinationId,
     tripDirection,
     absenceNote,
+    draft.notes,
     nowIso(),
     id
   );
@@ -436,9 +464,20 @@ type ScheduleRow = {
   start_time: string;
   end_time: string | null;
   destination_id: string | null;
+  notes: string | null;
   enabled: number;
   created_at: string;
   updated_at: string;
+};
+
+type ScheduleRuleInput = {
+  type: EventType;
+  weekdays: number[];
+  startTime: string;
+  endTime: string | null;
+  destinationId: string | null;
+  notes: string | null;
+  enabled: boolean;
 };
 
 function parseWeekdays(value: string): number[] {
@@ -461,6 +500,7 @@ function mapSchedule(row: ScheduleRow): ScheduleRule {
     startTime: row.start_time,
     endTime: row.end_time,
     destinationId: row.destination_id,
+    notes: row.notes ?? null,
     enabled: row.enabled === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -481,26 +521,20 @@ export async function getScheduleRule(db: SQLiteDatabase, id: string): Promise<S
 
 export async function createScheduleRule(
   db: SQLiteDatabase,
-  input: {
-    type: EventType;
-    weekdays: number[];
-    startTime: string;
-    endTime: string | null;
-    destinationId: string | null;
-    enabled: boolean;
-  }
+  input: ScheduleRuleInput
 ): Promise<ScheduleRule> {
   const id = createId();
   const now = nowIso();
   await db.runAsync(
-    `INSERT INTO schedule_rules (id, type, weekdays, start_time, end_time, destination_id, enabled, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO schedule_rules (id, type, weekdays, start_time, end_time, destination_id, notes, enabled, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     input.type,
     serializeWeekdays(input.weekdays),
     input.startTime,
     input.endTime,
     input.destinationId,
+    input.notes,
     input.enabled ? 1 : 0,
     now,
     now
@@ -513,24 +547,18 @@ export async function createScheduleRule(
 export async function updateScheduleRule(
   db: SQLiteDatabase,
   id: string,
-  input: {
-    type: EventType;
-    weekdays: number[];
-    startTime: string;
-    endTime: string | null;
-    destinationId: string | null;
-    enabled: boolean;
-  }
+  input: ScheduleRuleInput
 ): Promise<void> {
   await db.runAsync(
     `UPDATE schedule_rules
-     SET type = ?, weekdays = ?, start_time = ?, end_time = ?, destination_id = ?, enabled = ?, updated_at = ?
+     SET type = ?, weekdays = ?, start_time = ?, end_time = ?, destination_id = ?, notes = ?, enabled = ?, updated_at = ?
      WHERE id = ?`,
     input.type,
     serializeWeekdays(input.weekdays),
     input.startTime,
     input.endTime,
     input.destinationId,
+    input.notes,
     input.enabled ? 1 : 0,
     nowIso(),
     id

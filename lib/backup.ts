@@ -84,14 +84,15 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
 
       for (const row of backup.scheduleRules) {
         await db.runAsync(
-          `INSERT INTO schedule_rules (id, type, weekdays, start_time, end_time, destination_id, enabled, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO schedule_rules (id, type, weekdays, start_time, end_time, destination_id, notes, enabled, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           str(row.id),
           str(row.type),
           str(row.weekdays),
           str(row.start_time),
           nullable(row.end_time),
           nullable(row.destination_id),
+          nullable(row.notes),
           int(row.enabled, 1),
           str(row.created_at, nowIso()),
           str(row.updated_at, nowIso())

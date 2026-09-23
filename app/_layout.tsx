@@ -3,6 +3,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { Suspense, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -24,6 +25,7 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   return (
+    <SafeAreaProvider>
     <PhonePreview>
       <Suspense fallback={<LoadingScreen />}>
         <SQLiteProvider
@@ -54,6 +56,7 @@ export default function RootLayout() {
         </SQLiteProvider>
       </Suspense>
     </PhonePreview>
+    </SafeAreaProvider>
   );
 }
 

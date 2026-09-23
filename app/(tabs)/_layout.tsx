@@ -1,12 +1,22 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
+import { useContext } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PhoneFrameContext } from '@/components/PhonePreview';
 import { colors } from '@/constants/theme';
 
+const TAB_CONTENT_HEIGHT = 64;
+
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+  const inPhoneFrame = useContext(PhoneFrameContext);
+  const bottomPad = Math.max(insets.bottom, inPhoneFrame ? 22 : 8);
+
   return (
     <Tabs
+      safeAreaInsets={{ top: insets.top, bottom: 0, left: 0, right: 0 }}
       screenOptions={{
         headerShadowVisible: false,
         headerStyle: { backgroundColor: colors.background },
@@ -14,17 +24,29 @@ export default function TabLayout() {
         headerTintColor: colors.text,
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: '#9A9A9A',
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          height: 64,
-          paddingTop: 6,
-          paddingBottom: 8,
+          height: TAB_CONTENT_HEIGHT + bottomPad,
+          paddingTop: 8,
+          paddingBottom: bottomPad,
+          overflow: 'visible',
+        },
+        tabBarItemStyle: {
+          paddingTop: 0,
+          paddingBottom: 4,
+          overflow: 'visible',
         },
         tabBarLabelStyle: {
           fontSize: 11,
+          lineHeight: 14,
           fontWeight: '600',
-          marginBottom: 6,
+          marginTop: 2,
+          marginBottom: 0,
+        },
+        tabBarIconStyle: {
+          marginTop: 0,
         },
       }}>
       <Tabs.Screen
@@ -76,8 +98,8 @@ function TabIcon({
 const styles = StyleSheet.create({
   iconWrap: {
     width: 36,
-    height: 28,
-    borderRadius: 14,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },

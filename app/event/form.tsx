@@ -137,7 +137,7 @@ export default function EventFormScreen() {
             label="Notatka"
             value={notes}
             onChangeText={setNotes}
-            placeholder="Opcjonalnie"
+            placeholder="np. zbiórka 17:45, inny dojazd"
             multiline
           />
 

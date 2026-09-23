@@ -53,6 +53,7 @@ export type ScheduleRule = {
   startTime: string;
   endTime: string | null;
   destinationId: string | null;
+  notes: string | null;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -85,6 +86,7 @@ export type CompletionDraft = {
   transport: Transport | null;
   destinationId: string | null;
   tripDirection: TripDirection | null;
+  notes: string | null;
 };
 
 export const DEFAULT_SETTINGS: Settings = {

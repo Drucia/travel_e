@@ -9,7 +9,7 @@ import { colors, space } from '@/constants/theme';
 import { useApp, useDb } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
 import { formatDayLong, formatTimeRange } from '@/lib/dates';
-import { completeEvent, deleteEvent, getEvent } from '@/lib/db/queries';
+import { completeEvent, deleteEvent, getEvent, updateEventNotes } from '@/lib/db/queries';
 import type { EventRecord, Transport, TripDirection } from '@/lib/db/types';
 import { EVENT_TYPE_EMOJI, EVENT_TYPE_LABEL, formatMoney, tripAmount } from '@/lib/format';
 import { cancelEventReminder, syncEventReminder } from '@/lib/notifications';
@@ -27,6 +27,7 @@ export default function EventDetailScreen() {
   const [destinationId, setDestinationId] = useState<string | null>(null);
   const [tripDirection, setTripDirection] = useState<TripDirection | null>('round_trip');
   const [absenceNote, setAbsenceNote] = useState('');
+  const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -40,6 +41,7 @@ export default function EventDetailScreen() {
     setDestinationId(next.destinationId);
     setTripDirection(next.tripDirection ?? (next.traveled ? 'round_trip' : null));
     setAbsenceNote(next.absenceNote ?? '');
+    setNotes(next.notes ?? '');
   }, [db, id]);
 
   useFocusEffect(
@@ -48,7 +50,9 @@ export default function EventDetailScreen() {
     }, [load])
   );
 
-  const canSave =
+  const notesValue = notes.trim() || null;
+  const notesChanged = notesValue !== (event?.notes ?? null);
+  const canSaveCompletion =
     attended === false ||
     (attended === true && traveled === false) ||
     (attended === true &&
@@ -56,19 +60,23 @@ export default function EventDetailScreen() {
       transport !== null &&
       destinationId !== null &&
       tripDirection !== null);
+  const canSave = canSaveCompletion || notesChanged;
 
   async function save() {
-    if (!id || attended === null || !canSave) return;
+    if (!id || !canSave) return;
     setSaving(true);
     try {
-      const updated = await completeEvent(db, id, {
-        attended,
-        absenceNote: absenceNote.trim() || null,
-        traveled,
-        transport,
-        destinationId,
-        tripDirection,
-      });
+      const updated = canSaveCompletion && attended !== null
+        ? await completeEvent(db, id, {
+            attended,
+            absenceNote: absenceNote.trim() || null,
+            traveled,
+            transport,
+            destinationId,
+            tripDirection,
+            notes: notesValue,
+          })
+        : await updateEventNotes(db, id, notesValue);
       await syncEventReminder(updated, settings);
       await refresh();
       router.back();
@@ -108,8 +116,15 @@ export default function EventDetailScreen() {
             <Text style={styles.title}>{formatDayLong(event.date)}</Text>
             <Text style={styles.meta}>{formatTimeRange(event.startTime, event.endTime)}</Text>
             {event.destinationName ? <Text style={styles.meta}>{event.destinationName}</Text> : null}
-            {event.notes ? <Text style={styles.notes}>{event.notes}</Text> : null}
           </Card>
+
+          <TextField
+            label="Notatka"
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="np. zbiórka 17:45, inny dojazd"
+            multiline
+          />
 
           <SectionLabel>Czy byłam?</SectionLabel>
           <ChoiceGroup
@@ -212,7 +227,15 @@ export default function EventDetailScreen() {
           ) : null}
 
           <AppButton
-            label={saving ? 'Zapisywanie…' : event.completed ? 'Zapisz zmiany' : 'Zapisz'}
+            label={
+              saving
+                ? 'Zapisywanie…'
+                : canSaveCompletion
+                  ? event.completed
+                    ? 'Zapisz zmiany'
+                    : 'Zapisz'
+                  : 'Zapisz notatkę'
+            }
             onPress={() => void save()}
             disabled={!canSave || saving}
           />
@@ -245,11 +268,6 @@ const styles = StyleSheet.create({
   meta: {
     marginTop: 4,
     color: colors.muted,
-    fontSize: 15,
-  },
-  notes: {
-    marginTop: 10,
-    color: colors.text,
     fontSize: 15,
   },
   list: {

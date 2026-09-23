@@ -136,6 +136,16 @@ export default function SettingsScreen() {
             Ustaw stałe dni treningów i meczów. Aplikacja sama doda je w kalendarzu i przypomni po
             zakończeniu, żeby uzupełnić dojazd.
           </Text>
+          {destinations.length === 0 ? (
+            <View style={styles.emptyPlace}>
+              <Text style={styles.empty}>Nie masz jeszcze miejsc. Dodaj je, zanim ustawisz stałe dni.</Text>
+              <AppButton
+                label="Dodaj miejsce"
+                variant="secondary"
+                onPress={() => router.push('/destinations/new')}
+              />
+            </View>
+          ) : null}
           {scheduleRules.length === 0 ? (
             <Text style={styles.empty}>Brak stałych dni.</Text>
           ) : (
@@ -155,6 +165,7 @@ export default function SettingsScreen() {
                       {formatWeekdays(rule.weekdays)} · {formatTimeRange(rule.startTime, rule.endTime)}
                       {place ? ` · ${place.name}` : ''}
                     </Text>
+                    {rule.notes ? <Text style={styles.ruleNote}>{rule.notes}</Text> : null}
                   </Pressable>
                 );
               })}
@@ -257,6 +268,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: 12,
   },
+  emptyPlace: {
+    gap: 8,
+    marginBottom: 12,
+  },
   rules: {
     gap: 8,
     marginBottom: 12,
@@ -278,5 +293,10 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     marginTop: 3,
+  },
+  ruleNote: {
+    color: colors.text,
+    fontSize: 13,
+    marginTop: 6,
   },
 });

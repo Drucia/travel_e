@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   View,
   type PressableProps,
@@ -163,6 +164,33 @@ export function LoadingScreen() {
   return (
     <View style={styles.loading}>
       <ActivityIndicator color={colors.text} />
+    </View>
+  );
+}
+
+export function FormSwitch({
+  label,
+  value,
+  onValueChange,
+  hint,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  hint?: string;
+}) {
+  return (
+    <View style={styles.switchBlock}>
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>{label}</Text>
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ true: colors.accent, false: colors.border }}
+          thumbColor="#fff"
+        />
+      </View>
+      {hint ? <Text style={styles.switchHint}>{hint}</Text> : null}
     </View>
   );
 }
@@ -349,5 +377,26 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  switchBlock: {
+    gap: 6,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 52,
+    gap: 12,
+  },
+  switchLabel: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  switchHint: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

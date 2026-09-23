@@ -24,6 +24,11 @@ export function EventListItem({
           {formatTimeRange(event.startTime, event.endTime)}
           {event.destinationName ? ` · ${event.destinationName}` : ''}
         </Text>
+        {event.notes ? (
+          <Text style={styles.note} numberOfLines={2}>
+            {event.notes}
+          </Text>
+        ) : null}
       </View>
       {event.completed ? (
         <Ionicons name="checkmark-circle" size={22} color={colors.text} />
@@ -71,6 +76,11 @@ const styles = StyleSheet.create({
   meta: {
     color: colors.muted,
     fontSize: 13,
+  },
+  note: {
+    color: colors.text,
+    fontSize: 13,
+    marginTop: 2,
   },
   badge: {
     backgroundColor: colors.accent,

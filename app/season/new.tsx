@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 
 import { DateField, TextField } from '@/components/fields';
-import { AppButton, Screen } from '@/components/ui';
-import { colors, space } from '@/constants/theme';
+import { AppButton, FormSwitch, Screen } from '@/components/ui';
+import { space } from '@/constants/theme';
 import { useApp, useDb } from '@/context/AppContext';
 import { currentSeasonWindow } from '@/lib/dates';
 import { createSeason } from '@/lib/db/queries';
+import { generateScheduleEvents } from '@/lib/schedule';
 
 export default function NewSeasonScreen() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function NewSeasonScreen() {
   const [startDate, setStartDate] = useState(seed.startDate);
   const [endDate, setEndDate] = useState(seed.endDate);
   const [active, setActive] = useState(true);
+  const [includePast, setIncludePast] = useState(true);
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -37,6 +39,9 @@ export default function NewSeasonScreen() {
         endDate,
         active,
       });
+      if (season.active) {
+        await generateScheduleEvents(db, { includePast });
+      }
       await refresh();
       router.replace(`/season/${season.id}`);
     } catch (error) {
@@ -53,15 +58,13 @@ export default function NewSeasonScreen() {
           <TextField label="Nazwa" value={name} onChangeText={setName} placeholder="Sezon 2026/2027" />
           <DateField label="Data rozpoczęcia" value={startDate} onChange={setStartDate} />
           <DateField label="Data zakończenia" value={endDate} onChange={setEndDate} />
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Ustaw jako aktywny</Text>
-            <Switch
-              value={active}
-              onValueChange={setActive}
-              trackColor={{ true: colors.accent, false: colors.border }}
-              thumbColor="#fff"
-            />
-          </View>
+          <FormSwitch label="Ustaw jako aktywny" value={active} onValueChange={setActive} />
+          <FormSwitch
+            label="Dopisz treningi z harmonogramu wstecz"
+            value={includePast}
+            onValueChange={setIncludePast}
+            hint="Kalendarz uzupełni stałe dni od daty rozpoczęcia sezonu, nie tylko od dziś."
+          />
           <AppButton
             label={active ? 'Zapisz i ustaw jako aktywny' : 'Zapisz sezon'}
             onPress={() => void save()}
@@ -78,16 +81,6 @@ const styles = StyleSheet.create({
   content: {
     padding: space.md,
     gap: space.md,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 52,
-  },
-  switchLabel: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
+    paddingBottom: 40,
   },
 });

@@ -9,7 +9,10 @@ import {
   listScheduleRules,
 } from '@/lib/db/queries';
 
-export async function generateScheduleEvents(db: SQLiteDatabase): Promise<number> {
+export async function generateScheduleEvents(
+  db: SQLiteDatabase,
+  options?: { includePast?: boolean }
+): Promise<number> {
   const season = await getActiveSeason(db);
   if (!season) return 0;
 
@@ -17,7 +20,7 @@ export async function generateScheduleEvents(db: SQLiteDatabase): Promise<number
   if (rules.length === 0) return 0;
 
   const today = toISODate(new Date());
-  const start = today > season.startDate ? today : season.startDate;
+  const start = options?.includePast ? season.startDate : today > season.startDate ? today : season.startDate;
   if (season.endDate < start) return 0;
 
   const existing = await listEventsBetween(db, start, season.endDate);
@@ -41,7 +44,7 @@ export async function generateScheduleEvents(db: SQLiteDatabase): Promise<number
         endTime: rule.endTime,
         type: rule.type,
         destinationId: rule.destinationId,
-        notes: null,
+        notes: rule.notes,
         source: 'schedule' as const,
         scheduleRuleId: rule.id,
       });
@@ -54,7 +57,14 @@ export async function generateScheduleEvents(db: SQLiteDatabase): Promise<number
   return drafts.length;
 }
 
-export async function rebuildScheduleRuleEvents(db: SQLiteDatabase, ruleId: string): Promise<void> {
-  await deleteFutureScheduledEvents(db, ruleId, toISODate(new Date()));
-  await generateScheduleEvents(db);
+export async function rebuildScheduleRuleEvents(
+  db: SQLiteDatabase,
+  ruleId: string,
+  options?: { includePast?: boolean }
+): Promise<void> {
+  const season = await getActiveSeason(db);
+  const fromDate =
+    options?.includePast && season ? season.startDate : toISODate(new Date());
+  await deleteFutureScheduledEvents(db, ruleId, fromDate);
+  await generateScheduleEvents(db, options);
 }

@@ -1,16 +1,17 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { AppButton, Card, Screen, StatLine } from '@/components/ui';
+import { DateField, TextField } from '@/components/fields';
+import { AppButton, Card, FormSwitch, Screen, StatLine } from '@/components/ui';
 import { colors, radius, space } from '@/constants/theme';
 import { useApp, useDb } from '@/context/AppContext';
 import { confirmAction } from '@/lib/confirm';
-import { formatDayLong } from '@/lib/dates';
-import { deleteSeason, getSeason, listEventsBySeason, setActiveSeason } from '@/lib/db/queries';
+import { deleteSeason, getSeason, listEventsBySeason, setActiveSeason, updateSeason } from '@/lib/db/queries';
 import type { EventRecord, Season } from '@/lib/db/types';
 import { formatAttendance, formatMoney, labeledCount } from '@/lib/format';
 import { cancelEventReminder } from '@/lib/notifications';
+import { generateScheduleEvents } from '@/lib/schedule';
 import { computeStats } from '@/lib/stats';
 
 export default function SeasonDetailScreen() {
@@ -20,11 +21,22 @@ export default function SeasonDetailScreen() {
   const db = useDb();
   const [season, setSeason] = useState<Season | null>(null);
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [name, setName] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [includePast, setIncludePast] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
-    setSeason(await getSeason(db, id));
+    const next = await getSeason(db, id);
+    setSeason(next);
     setEvents(await listEventsBySeason(db, id));
+    if (next) {
+      setName(next.name);
+      setStartDate(next.startDate);
+      setEndDate(next.endDate);
+    }
   }, [db, id]);
 
   useFocusEffect(
@@ -38,8 +50,35 @@ export default function SeasonDetailScreen() {
   async function activate() {
     if (!id) return;
     await setActiveSeason(db, id);
+    await generateScheduleEvents(db, { includePast });
     await refresh();
     await load();
+  }
+
+  async function saveDates() {
+    if (!id || !season) return;
+    if (!name.trim()) {
+      Alert.alert('Nazwa jest wymagana');
+      return;
+    }
+    if (endDate < startDate) {
+      Alert.alert('Niepoprawne daty', 'Data zakończenia musi być późniejsza niż data startu.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateSeason(db, id, { name, startDate, endDate });
+      const next = await getSeason(db, id);
+      if (next?.active) {
+        await generateScheduleEvents(db, { includePast });
+      }
+      await refresh();
+      await load();
+    } catch (error) {
+      Alert.alert('Nie udało się zapisać', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function confirmDelete() {
@@ -75,10 +114,24 @@ export default function SeasonDetailScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <Card>
-          <Text style={styles.name}>{season.name}</Text>
-          <Text style={styles.meta}>
-            {formatDayLong(season.startDate)} – {formatDayLong(season.endDate)}
-          </Text>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.form}>
+              <TextField label="Nazwa" value={name} onChangeText={setName} placeholder="Sezon 2026/2027" />
+              <DateField label="Data rozpoczęcia" value={startDate} onChange={setStartDate} />
+              <DateField label="Data zakończenia" value={endDate} onChange={setEndDate} />
+              <FormSwitch
+                label="Dopisz treningi z harmonogramu wstecz"
+                value={includePast}
+                onValueChange={setIncludePast}
+                hint="Gdy zapiszesz okres sezonu, stałe dni z harmonogramu pojawią się też przed dniem dzisiejszym."
+              />
+              <AppButton
+                label={saving ? 'Zapisywanie…' : 'Zapisz okres sezonu'}
+                onPress={() => void saveDates()}
+                disabled={saving}
+              />
+            </View>
+          </KeyboardAvoidingView>
           {season.active ? (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>Aktywny</Text>
@@ -135,15 +188,8 @@ const styles = StyleSheet.create({
     gap: space.md,
     paddingBottom: 40,
   },
-  name: {
-    color: colors.text,
-    fontSize: 26,
-    fontWeight: '800',
-  },
-  meta: {
-    marginTop: 6,
-    color: colors.muted,
-    fontSize: 14,
+  form: {
+    gap: space.md,
   },
   badge: {
     alignSelf: 'flex-start',
