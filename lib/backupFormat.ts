@@ -1,7 +1,7 @@
 export const BACKUP_VERSION = 1 as const;
 
 export type BackupFile = {
-  app: 'ewidencja';
+  app: "ewidencja";
   version: typeof BACKUP_VERSION;
   exportedAt: string;
   seasons: Record<string, unknown>[];
@@ -32,14 +32,16 @@ export function parseBackup(raw: string): BackupFile {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error('To nie jest poprawny plik JSON.');
+    throw new Error("To nie jest poprawny plik JSON.");
   }
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Niepoprawna kopia zapasowa.');
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Niepoprawna kopia zapasowa.");
   }
   const data = parsed as Partial<BackupFile>;
-  if (data.app !== 'ewidencja' || data.version !== BACKUP_VERSION) {
-    throw new Error('Ten plik nie pochodzi z Ewidencji albo ma za stary format.');
+  if (data.app !== "ewidencja" || data.version !== BACKUP_VERSION) {
+    throw new Error(
+      "Ten plik nie pochodzi z Ewidencji albo ma za stary format.",
+    );
   }
   if (
     !Array.isArray(data.seasons) ||
@@ -48,12 +50,12 @@ export function parseBackup(raw: string): BackupFile {
     !Array.isArray(data.events) ||
     !Array.isArray(data.settings)
   ) {
-    throw new Error('W kopii brakuje tabel.');
+    throw new Error("W kopii brakuje tabel.");
   }
   return {
     app: data.app,
     version: data.version,
-    exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : '',
+    exportedAt: typeof data.exportedAt === "string" ? data.exportedAt : "",
     seasons: data.seasons,
     destinations: data.destinations,
     scheduleRules: data.scheduleRules,
@@ -64,7 +66,9 @@ export function parseBackup(raw: string): BackupFile {
   };
 }
 
-export function deviceBackupInfo(backup: BackupFile | null): DeviceBackupInfo | null {
+export function deviceBackupInfo(
+  backup: BackupFile | null,
+): DeviceBackupInfo | null {
   if (!backup) return null;
   return {
     exportedAt: backup.exportedAt,

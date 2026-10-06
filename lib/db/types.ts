@@ -1,7 +1,7 @@
-export type EventType = 'training' | 'match';
-export type Transport = 'car' | 'other';
-export type DistanceType = 'one_way' | 'round_trip';
-export type TripDirection = 'round_trip' | 'outbound' | 'return';
+export type EventType = "training" | "match";
+export type Transport = "car" | "other";
+export type DistanceType = "one_way" | "round_trip";
+export type TripDirection = "round_trip" | "outbound" | "return";
 
 export type Season = {
   id: string;
@@ -41,7 +41,7 @@ export type EventRecord = {
   absenceNote: string | null;
   completed: boolean;
   notificationId: string | null;
-  source: 'manual' | 'schedule';
+  source: "manual" | "schedule";
   scheduleRuleId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -89,7 +89,7 @@ export type EventDraft = {
   type: EventType;
   destinationId: string | null;
   notes: string | null;
-  source?: 'manual' | 'schedule';
+  source?: "manual" | "schedule";
   scheduleRuleId?: string | null;
 };
 
@@ -105,11 +105,11 @@ export type CompletionDraft = {
 
 export const DEFAULT_SETTINGS: Settings = {
   reminderEnabled: true,
-  reminderTime: '20:00',
+  reminderTime: "20:00",
   reminderOffsetMinutes: 0,
   kilometerRate: 1,
   defaultDurationMinutes: 90,
-  telegramBotToken: '',
-  telegramChatId: '',
-  telegramBlobId: '',
+  telegramBotToken: "",
+  telegramChatId: "",
+  telegramBlobId: "",
 };

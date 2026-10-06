@@ -1,17 +1,21 @@
-import { useFocusEffect, useNavigation } from 'expo-router';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useNavigation } from "expo-router";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { MonthHeader } from '@/components/calendar';
-import { DateField, TextField } from '@/components/fields';
-import { AppButton, Card, Screen, StatLine } from '@/components/ui';
-import { colors, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
-import { monthRange, shiftMonth, toISODate } from '@/lib/dates';
-import { getSettlement, listEventsBetween, saveSettlement } from '@/lib/db/queries';
-import type { EventRecord, Settlement } from '@/lib/db/types';
-import { formatAttendance, formatMoney, labeledCount } from '@/lib/format';
-import { computeStats } from '@/lib/stats';
+import { MonthHeader } from "@/components/calendar";
+import { DateField, TextField } from "@/components/fields";
+import { AppButton, Card, Screen, StatLine } from "@/components/ui";
+import { colors, space } from "@/constants/theme";
+import { useApp, useDb } from "@/context/AppContext";
+import { monthRange, shiftMonth, toISODate } from "@/lib/dates";
+import {
+    getSettlement,
+    listEventsBetween,
+    saveSettlement,
+} from "@/lib/db/queries";
+import type { EventRecord, Settlement } from "@/lib/db/types";
+import { formatAttendance, formatMoney, labeledCount } from "@/lib/format";
+import { computeStats } from "@/lib/stats";
 
 export default function DashboardScreen() {
   const { destinations } = useApp();
@@ -22,12 +26,12 @@ export default function DashboardScreen() {
   const [monthIndex, setMonthIndex] = useState(now.getMonth());
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [settlement, setSettlement] = useState<Settlement | null>(null);
-  const [receivedAmount, setReceivedAmount] = useState('');
+  const [receivedAmount, setReceivedAmount] = useState("");
   const [receivedDate, setReceivedDate] = useState(toISODate(now));
   const [savingSettlement, setSavingSettlement] = useState(false);
   const [showSettlementForm, setShowSettlementForm] = useState(false);
 
-  const monthKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+  const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
 
   const load = useCallback(async () => {
     try {
@@ -38,24 +42,29 @@ export default function DashboardScreen() {
       ]);
       setEvents(nextEvents);
       setSettlement(nextSettlement);
-      setReceivedAmount(nextSettlement ? String(nextSettlement.amount).replace('.', ',') : '');
+      setReceivedAmount(
+        nextSettlement ? String(nextSettlement.amount).replace(".", ",") : "",
+      );
       setReceivedDate(nextSettlement?.receivedDate ?? toISODate(new Date()));
     } catch (error) {
-      console.warn('Nie udało się wczytać dashboardu', error);
+      console.warn("Nie udało się wczytać dashboardu", error);
     }
   }, [db, monthKey, year, monthIndex]);
 
   useFocusEffect(
     useCallback(() => {
       void load();
-    }, [load])
+    }, [load]),
   );
 
-  const stats = useMemo(() => computeStats(events, destinations), [events, destinations]);
+  const stats = useMemo(
+    () => computeStats(events, destinations),
+    [events, destinations],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerTitle: 'Dashboard',
+      headerTitle: "Dashboard",
       headerRight: () => (
         <Text style={styles.headerMoney}>
           {formatMoney(settlement?.amount ?? 0)} / {formatMoney(stats.amount)}
@@ -71,20 +80,27 @@ export default function DashboardScreen() {
   }
 
   async function saveReceivedSettlement() {
-    const amount = Number(receivedAmount.replace(',', '.'));
+    const amount = Number(receivedAmount.replace(",", "."));
     if (!Number.isFinite(amount) || amount < 0) {
-      Alert.alert('Niepoprawna kwota', 'Wpisz kwotę otrzymanego rozliczenia.');
+      Alert.alert("Niepoprawna kwota", "Wpisz kwotę otrzymanego rozliczenia.");
       return;
     }
     setSavingSettlement(true);
     try {
-      const saved = await saveSettlement(db, { month: monthKey, amount, receivedDate });
+      const saved = await saveSettlement(db, {
+        month: monthKey,
+        amount,
+        receivedDate,
+      });
       setSettlement(saved);
-      setReceivedAmount(String(saved.amount).replace('.', ','));
+      setReceivedAmount(String(saved.amount).replace(".", ","));
       setShowSettlementForm(false);
-      Alert.alert('Zapisano', 'Otrzymane rozliczenie zostało zapisane.');
+      Alert.alert("Zapisano", "Otrzymane rozliczenie zostało zapisane.");
     } catch (error) {
-      Alert.alert('Nie udało się zapisać', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+      Alert.alert(
+        "Nie udało się zapisać",
+        error instanceof Error ? error.message : "Spróbuj ponownie.",
+      );
     } finally {
       setSavingSettlement(false);
     }
@@ -92,17 +108,27 @@ export default function DashboardScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Card>
           <View style={styles.topRow}>
             <View style={styles.monthNav}>
-              <MonthHeader year={year} monthIndex={monthIndex} onPrev={() => changeMonth(-1)} onNext={() => changeMonth(1)} />
+              <MonthHeader
+                year={year}
+                monthIndex={monthIndex}
+                onPrev={() => changeMonth(-1)}
+                onNext={() => changeMonth(1)}
+              />
             </View>
           </View>
           <AppButton
-            label={showSettlementForm ? 'Ukryj rozliczenie' : 'Wpisz rozliczenie'}
+            label={
+              showSettlementForm ? "Ukryj rozliczenie" : "Wpisz rozliczenie"
+            }
             variant="secondary"
-            icon={showSettlementForm ? 'chevron-up' : 'create-outline'}
+            icon={showSettlementForm ? "chevron-up" : "create-outline"}
             onPress={() => setShowSettlementForm((visible) => !visible)}
           />
           {showSettlementForm ? (
@@ -114,9 +140,15 @@ export default function DashboardScreen() {
                 placeholder="np. 120,50"
                 keyboardType="decimal-pad"
               />
-              <DateField label="Data otrzymania" value={receivedDate} onChange={setReceivedDate} />
+              <DateField
+                label="Data otrzymania"
+                value={receivedDate}
+                onChange={setReceivedDate}
+              />
               <AppButton
-                label={savingSettlement ? 'Zapisywanie...' : 'Zapisz rozliczenie'}
+                label={
+                  savingSettlement ? "Zapisywanie..." : "Zapisz rozliczenie"
+                }
                 icon="checkmark"
                 onPress={() => void saveReceivedSettlement()}
                 disabled={savingSettlement}
@@ -134,13 +166,20 @@ export default function DashboardScreen() {
             label="Obecność · mecze"
             value={formatAttendance(stats.attendedMatches, stats.matches)}
           />
-          <StatLine label="Wyjazdy" value={labeledCount(stats.trips, 'wyjazd', 'wyjazdy', 'wyjazdów')} />
+          <StatLine
+            label="Wyjazdy"
+            value={labeledCount(stats.trips, "wyjazd", "wyjazdy", "wyjazdów")}
+          />
         </Card>
 
         <Card>
           <Text style={styles.section}>Rozliczenie</Text>
           <StatLine label="Wyjazdy" value={String(stats.trips)} />
-          <StatLine label="Kwota do rozliczenia" value={formatMoney(stats.amount)} accent />
+          <StatLine
+            label="Kwota do rozliczenia"
+            value={formatMoney(stats.amount)}
+            accent
+          />
         </Card>
 
         <Card>
@@ -154,10 +193,17 @@ export default function DashboardScreen() {
                   <View>
                     <Text style={styles.placeName}>{place.name}</Text>
                     <Text style={styles.placeMeta}>
-                      {labeledCount(place.trips, 'wyjazd', 'wyjazdy', 'wyjazdów')}
+                      {labeledCount(
+                        place.trips,
+                        "wyjazd",
+                        "wyjazdy",
+                        "wyjazdów",
+                      )}
                     </Text>
                   </View>
-                  <Text style={styles.placeKm}>{formatMoney(place.amount)}</Text>
+                  <Text style={styles.placeKm}>
+                    {formatMoney(place.amount)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -177,13 +223,13 @@ const styles = StyleSheet.create({
   headerMoney: {
     color: colors.muted,
     fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'right',
+    fontWeight: "800",
+    textAlign: "right",
     marginRight: space.md,
   },
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: space.sm,
   },
   monthNav: {
@@ -199,7 +245,7 @@ const styles = StyleSheet.create({
   section: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 8,
   },
   empty: {
@@ -210,14 +256,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   placeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   placeName: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   placeMeta: {
     color: colors.muted,
@@ -227,11 +273,11 @@ const styles = StyleSheet.create({
   placeKm: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     backgroundColor: colors.accentSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
 });

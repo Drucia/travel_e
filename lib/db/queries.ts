@@ -1,8 +1,22 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SQLiteDatabase } from "expo-sqlite";
 
-import { createId, nowIso } from '@/lib/id';
-import { mondayWeekdayIndex, parseISODate } from '@/lib/dates';
-import { DEFAULT_SETTINGS, type CompletionDraft, type Destination, type DistanceType, type EventDraft, type EventRecord, type EventType, type ScheduleRule, type Season, type Settlement, type Settings, type Transport, type TripDirection } from '@/lib/db/types';
+import { mondayWeekdayIndex, parseISODate } from "@/lib/dates";
+import {
+    DEFAULT_SETTINGS,
+    type CompletionDraft,
+    type Destination,
+    type DistanceType,
+    type EventDraft,
+    type EventRecord,
+    type EventType,
+    type ScheduleRule,
+    type Season,
+    type Settings,
+    type Settlement,
+    type Transport,
+    type TripDirection,
+} from "@/lib/db/types";
+import { createId, nowIso } from "@/lib/id";
 
 type SeasonRow = {
   id: string;
@@ -42,7 +56,7 @@ type EventRow = {
   absence_note: string | null;
   completed: number;
   notification_id: string | null;
-  source?: 'manual' | 'schedule' | null;
+  source?: "manual" | "schedule" | null;
   schedule_rule_id?: string | null;
   created_at: string;
   updated_at: string;
@@ -117,7 +131,7 @@ function mapEvent(row: EventRow): EventRecord {
     absenceNote: row.absence_note,
     completed: row.completed === 1,
     notificationId: row.notification_id,
-    source: row.source === 'schedule' ? 'schedule' : 'manual',
+    source: row.source === "schedule" ? "schedule" : "manual",
     scheduleRuleId: row.schedule_rule_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -136,14 +150,20 @@ function mapSettlement(row: SettlementRow): Settlement {
   };
 }
 
-export async function getSettlement(db: SQLiteDatabase, month: string): Promise<Settlement | null> {
-  const row = await db.getFirstAsync<SettlementRow>('SELECT * FROM settlements WHERE month = ?', month);
+export async function getSettlement(
+  db: SQLiteDatabase,
+  month: string,
+): Promise<Settlement | null> {
+  const row = await db.getFirstAsync<SettlementRow>(
+    "SELECT * FROM settlements WHERE month = ?",
+    month,
+  );
   return row ? mapSettlement(row) : null;
 }
 
 export async function saveSettlement(
   db: SQLiteDatabase,
-  input: { month: string; amount: number; receivedDate: string }
+  input: { month: string; amount: number; receivedDate: string },
 ): Promise<Settlement> {
   const existing = await getSettlement(db, input.month);
   const id = existing?.id ?? createId();
@@ -157,39 +177,52 @@ export async function saveSettlement(
     input.amount,
     input.receivedDate,
     existing?.createdAt ?? now,
-    now
+    now,
   );
   const saved = await getSettlement(db, input.month);
-  if (!saved) throw new Error('Nie udało się zapisać rozliczenia');
+  if (!saved) throw new Error("Nie udało się zapisać rozliczenia");
   return saved;
 }
 
 export async function listSeasons(db: SQLiteDatabase): Promise<Season[]> {
   const rows = await db.getAllAsync<SeasonRow>(
-    'SELECT * FROM seasons ORDER BY is_active DESC, start_date DESC'
+    "SELECT * FROM seasons ORDER BY is_active DESC, start_date DESC",
   );
   return rows.map(mapSeason);
 }
 
-export async function getSeason(db: SQLiteDatabase, id: string): Promise<Season | null> {
-  const row = await db.getFirstAsync<SeasonRow>('SELECT * FROM seasons WHERE id = ?', id);
+export async function getSeason(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<Season | null> {
+  const row = await db.getFirstAsync<SeasonRow>(
+    "SELECT * FROM seasons WHERE id = ?",
+    id,
+  );
   return row ? mapSeason(row) : null;
 }
 
-export async function getActiveSeason(db: SQLiteDatabase): Promise<Season | null> {
-  const row = await db.getFirstAsync<SeasonRow>('SELECT * FROM seasons WHERE is_active = 1 LIMIT 1');
+export async function getActiveSeason(
+  db: SQLiteDatabase,
+): Promise<Season | null> {
+  const row = await db.getFirstAsync<SeasonRow>(
+    "SELECT * FROM seasons WHERE is_active = 1 LIMIT 1",
+  );
   return row ? mapSeason(row) : null;
 }
 
 export async function createSeason(
   db: SQLiteDatabase,
-  input: { name: string; startDate: string; endDate: string; active: boolean }
+  input: { name: string; startDate: string; endDate: string; active: boolean },
 ): Promise<Season> {
   const id = createId();
   const now = nowIso();
   await db.withTransactionAsync(async () => {
     if (input.active) {
-      await db.runAsync('UPDATE seasons SET is_active = 0, updated_at = ?', now);
+      await db.runAsync(
+        "UPDATE seasons SET is_active = 0, updated_at = ?",
+        now,
+      );
     }
     await db.runAsync(
       `INSERT INTO seasons (id, name, start_date, end_date, is_active, created_at, updated_at)
@@ -200,18 +233,18 @@ export async function createSeason(
       input.endDate,
       input.active ? 1 : 0,
       now,
-      now
+      now,
     );
   });
   const created = await getSeason(db, id);
-  if (!created) throw new Error('Nie udało się utworzyć sezonu');
+  if (!created) throw new Error("Nie udało się utworzyć sezonu");
   return created;
 }
 
 export async function updateSeason(
   db: SQLiteDatabase,
   id: string,
-  input: { name: string; startDate: string; endDate: string }
+  input: { name: string; startDate: string; endDate: string },
 ): Promise<void> {
   await db.runAsync(
     `UPDATE seasons SET name = ?, start_date = ?, end_date = ?, updated_at = ? WHERE id = ?`,
@@ -219,22 +252,32 @@ export async function updateSeason(
     input.startDate,
     input.endDate,
     nowIso(),
-    id
+    id,
   );
 }
 
-export async function setActiveSeason(db: SQLiteDatabase, id: string): Promise<void> {
+export async function setActiveSeason(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<void> {
   const now = nowIso();
   await db.withTransactionAsync(async () => {
-    await db.runAsync('UPDATE seasons SET is_active = 0, updated_at = ?', now);
-    await db.runAsync('UPDATE seasons SET is_active = 1, updated_at = ? WHERE id = ?', now, id);
+    await db.runAsync("UPDATE seasons SET is_active = 0, updated_at = ?", now);
+    await db.runAsync(
+      "UPDATE seasons SET is_active = 1, updated_at = ? WHERE id = ?",
+      now,
+      id,
+    );
   });
 }
 
-export async function deleteSeason(db: SQLiteDatabase, id: string): Promise<void> {
+export async function deleteSeason(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<void> {
   await db.withTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM events WHERE season_id = ?', id);
-    await db.runAsync('DELETE FROM seasons WHERE id = ?', id);
+    await db.runAsync("DELETE FROM events WHERE season_id = ?", id);
+    await db.runAsync("DELETE FROM seasons WHERE id = ?", id);
   });
 
   const remaining = await listSeasons(db);
@@ -243,19 +286,29 @@ export async function deleteSeason(db: SQLiteDatabase, id: string): Promise<void
   }
 }
 
-export async function listDestinations(db: SQLiteDatabase): Promise<Destination[]> {
-  const rows = await db.getAllAsync<DestinationRow>('SELECT * FROM destinations ORDER BY name COLLATE NOCASE');
+export async function listDestinations(
+  db: SQLiteDatabase,
+): Promise<Destination[]> {
+  const rows = await db.getAllAsync<DestinationRow>(
+    "SELECT * FROM destinations ORDER BY name COLLATE NOCASE",
+  );
   return rows.map(mapDestination);
 }
 
-export async function getDestination(db: SQLiteDatabase, id: string): Promise<Destination | null> {
-  const row = await db.getFirstAsync<DestinationRow>('SELECT * FROM destinations WHERE id = ?', id);
+export async function getDestination(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<Destination | null> {
+  const row = await db.getFirstAsync<DestinationRow>(
+    "SELECT * FROM destinations WHERE id = ?",
+    id,
+  );
   return row ? mapDestination(row) : null;
 }
 
 export async function createDestination(
   db: SQLiteDatabase,
-  input: { name: string; address: string | null; roundTripRate: number }
+  input: { name: string; address: string | null; roundTripRate: number },
 ): Promise<Destination> {
   const id = createId();
   const now = nowIso();
@@ -267,17 +320,17 @@ export async function createDestination(
     input.address?.trim() || null,
     input.roundTripRate,
     now,
-    now
+    now,
   );
   const created = await getDestination(db, id);
-  if (!created) throw new Error('Nie udało się dodać miejsca');
+  if (!created) throw new Error("Nie udało się dodać miejsca");
   return created;
 }
 
 export async function updateDestination(
   db: SQLiteDatabase,
   id: string,
-  input: { name: string; address: string | null; roundTripRate: number }
+  input: { name: string; address: string | null; roundTripRate: number },
 ): Promise<void> {
   await db.runAsync(
     `UPDATE destinations
@@ -287,46 +340,65 @@ export async function updateDestination(
     input.address?.trim() || null,
     input.roundTripRate,
     nowIso(),
-    id
+    id,
   );
 }
 
-export async function deleteDestination(db: SQLiteDatabase, id: string): Promise<void> {
-  await db.runAsync('DELETE FROM destinations WHERE id = ?', id);
+export async function deleteDestination(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<void> {
+  await db.runAsync("DELETE FROM destinations WHERE id = ?", id);
 }
 
 export async function listEventsBetween(
   db: SQLiteDatabase,
   start: string,
-  end: string
+  end: string,
 ): Promise<EventRecord[]> {
   const rows = await db.getAllAsync<EventRow>(
     `${EVENT_SELECT} WHERE e.date >= ? AND e.date <= ? ORDER BY e.date, e.start_time`,
     start,
-    end
+    end,
   );
   return rows.map(mapEvent);
 }
 
-export async function listEventsBySeason(db: SQLiteDatabase, seasonId: string): Promise<EventRecord[]> {
+export async function listEventsBySeason(
+  db: SQLiteDatabase,
+  seasonId: string,
+): Promise<EventRecord[]> {
   const rows = await db.getAllAsync<EventRow>(
     `${EVENT_SELECT} WHERE e.season_id = ? ORDER BY e.date, e.start_time`,
-    seasonId
+    seasonId,
   );
   return rows.map(mapEvent);
 }
 
-export async function listIncompleteEvents(db: SQLiteDatabase): Promise<EventRecord[]> {
-  const rows = await db.getAllAsync<EventRow>(`${EVENT_SELECT} WHERE e.completed = 0`);
+export async function listIncompleteEvents(
+  db: SQLiteDatabase,
+): Promise<EventRecord[]> {
+  const rows = await db.getAllAsync<EventRow>(
+    `${EVENT_SELECT} WHERE e.completed = 0`,
+  );
   return rows.map(mapEvent);
 }
 
-export async function getEvent(db: SQLiteDatabase, id: string): Promise<EventRecord | null> {
-  const row = await db.getFirstAsync<EventRow>(`${EVENT_SELECT} WHERE e.id = ?`, id);
+export async function getEvent(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<EventRecord | null> {
+  const row = await db.getFirstAsync<EventRow>(
+    `${EVENT_SELECT} WHERE e.id = ?`,
+    id,
+  );
   return row ? mapEvent(row) : null;
 }
 
-export async function createEvent(db: SQLiteDatabase, draft: EventDraft): Promise<EventRecord> {
+export async function createEvent(
+  db: SQLiteDatabase,
+  draft: EventDraft,
+): Promise<EventRecord> {
   const id = createId();
   const now = nowIso();
   await db.runAsync(
@@ -342,17 +414,20 @@ export async function createEvent(db: SQLiteDatabase, draft: EventDraft): Promis
     draft.type,
     draft.destinationId,
     draft.notes,
-    draft.source ?? 'manual',
+    draft.source ?? "manual",
     draft.scheduleRuleId ?? null,
     now,
-    now
+    now,
   );
   const created = await getEvent(db, id);
-  if (!created) throw new Error('Nie udało się dodać wydarzenia');
+  if (!created) throw new Error("Nie udało się dodać wydarzenia");
   return created;
 }
 
-export async function insertScheduledEvents(db: SQLiteDatabase, drafts: EventDraft[]): Promise<void> {
+export async function insertScheduledEvents(
+  db: SQLiteDatabase,
+  drafts: EventDraft[],
+): Promise<void> {
   if (drafts.length === 0) return;
   const now = nowIso();
   await db.withTransactionAsync(async () => {
@@ -370,10 +445,10 @@ export async function insertScheduledEvents(db: SQLiteDatabase, drafts: EventDra
         draft.type,
         draft.destinationId,
         draft.notes,
-        draft.source ?? 'schedule',
+        draft.source ?? "schedule",
         draft.scheduleRuleId ?? null,
         now,
-        now
+        now,
       );
     }
   });
@@ -382,7 +457,7 @@ export async function insertScheduledEvents(db: SQLiteDatabase, drafts: EventDra
 export async function updateEvent(
   db: SQLiteDatabase,
   id: string,
-  draft: EventDraft
+  draft: EventDraft,
 ): Promise<EventRecord> {
   const existing = await getEvent(db, id);
   const slotChanged =
@@ -407,36 +482,42 @@ export async function updateEvent(
     draft.type,
     draft.destinationId,
     draft.notes,
-    slotChanged ? 'manual' : (existing?.source ?? 'manual'),
+    slotChanged ? "manual" : (existing?.source ?? "manual"),
     slotChanged ? null : (existing?.scheduleRuleId ?? null),
     nowIso(),
-    id
+    id,
   );
   const updated = await getEvent(db, id);
-  if (!updated) throw new Error('Nie znaleziono wydarzenia');
+  if (!updated) throw new Error("Nie znaleziono wydarzenia");
   return updated;
 }
 
 export async function updateEventNotes(
   db: SQLiteDatabase,
   id: string,
-  notes: string | null
+  notes: string | null,
 ): Promise<EventRecord> {
-  await db.runAsync('UPDATE events SET notes = ?, updated_at = ? WHERE id = ?', notes, nowIso(), id);
+  await db.runAsync(
+    "UPDATE events SET notes = ?, updated_at = ? WHERE id = ?",
+    notes,
+    nowIso(),
+    id,
+  );
   const updated = await getEvent(db, id);
-  if (!updated) throw new Error('Nie znaleziono wydarzenia');
+  if (!updated) throw new Error("Nie znaleziono wydarzenia");
   return updated;
 }
 
 export async function completeEvent(
   db: SQLiteDatabase,
   id: string,
-  draft: CompletionDraft
+  draft: CompletionDraft,
 ): Promise<EventRecord> {
   const attended = draft.attended;
   const traveled = attended ? draft.traveled : null;
   const transport = attended && traveled ? draft.transport : null;
-  const destinationId = attended && traveled ? draft.destinationId : draft.destinationId;
+  const destinationId =
+    attended && traveled ? draft.destinationId : draft.destinationId;
   const tripDirection = attended && traveled ? draft.tripDirection : null;
   const absenceNote = attended ? null : draft.absenceNote;
 
@@ -461,44 +542,53 @@ export async function completeEvent(
     absenceNote,
     draft.notes,
     nowIso(),
-    id
+    id,
   );
   const updated = await getEvent(db, id);
-  if (!updated) throw new Error('Nie znaleziono wydarzenia');
+  if (!updated) throw new Error("Nie znaleziono wydarzenia");
   return updated;
 }
 
-export async function deleteEvent(db: SQLiteDatabase, id: string): Promise<void> {
+export async function deleteEvent(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<void> {
   const existing = await getEvent(db, id);
   if (existing) {
     await skipScheduleSlot(db, existing);
   }
-  await db.runAsync('DELETE FROM events WHERE id = ?', id);
+  await db.runAsync("DELETE FROM events WHERE id = ?", id);
 }
 
 export async function setEventNotificationId(
   db: SQLiteDatabase,
   id: string,
-  notificationId: string | null
+  notificationId: string | null,
 ): Promise<void> {
   await db.runAsync(
-    'UPDATE events SET notification_id = ?, updated_at = ? WHERE id = ?',
+    "UPDATE events SET notification_id = ?, updated_at = ? WHERE id = ?",
     notificationId,
     nowIso(),
-    id
+    id,
   );
 }
 
 export async function getSettings(db: SQLiteDatabase): Promise<Settings> {
-  const rows = await db.getAllAsync<SettingsRow>('SELECT key, value FROM settings');
+  const rows = await db.getAllAsync<SettingsRow>(
+    "SELECT key, value FROM settings",
+  );
   const map = Object.fromEntries(rows.map((row) => [row.key, row.value]));
   return {
-    reminderEnabled: (map.reminderEnabled ?? (DEFAULT_SETTINGS.reminderEnabled ? '1' : '0')) === '1',
+    reminderEnabled:
+      (map.reminderEnabled ??
+        (DEFAULT_SETTINGS.reminderEnabled ? "1" : "0")) === "1",
     reminderTime: map.reminderTime ?? DEFAULT_SETTINGS.reminderTime,
-    reminderOffsetMinutes: Number(map.reminderOffsetMinutes ?? DEFAULT_SETTINGS.reminderOffsetMinutes),
+    reminderOffsetMinutes: Number(
+      map.reminderOffsetMinutes ?? DEFAULT_SETTINGS.reminderOffsetMinutes,
+    ),
     kilometerRate: Number(map.kilometerRate ?? DEFAULT_SETTINGS.kilometerRate),
     defaultDurationMinutes: Number(
-      map.defaultDurationMinutes ?? DEFAULT_SETTINGS.defaultDurationMinutes
+      map.defaultDurationMinutes ?? DEFAULT_SETTINGS.defaultDurationMinutes,
     ),
     telegramBotToken: map.telegramBotToken ?? DEFAULT_SETTINGS.telegramBotToken,
     telegramChatId: map.telegramChatId ?? DEFAULT_SETTINGS.telegramChatId,
@@ -508,12 +598,12 @@ export async function getSettings(db: SQLiteDatabase): Promise<Settings> {
 
 export async function updateSettings(
   db: SQLiteDatabase,
-  patch: Partial<Settings>
+  patch: Partial<Settings>,
 ): Promise<Settings> {
   const current = await getSettings(db);
   const next: Settings = { ...current, ...patch };
   const values: Record<string, string> = {
-    reminderEnabled: next.reminderEnabled ? '1' : '0',
+    reminderEnabled: next.reminderEnabled ? "1" : "0",
     reminderTime: next.reminderTime,
     reminderOffsetMinutes: String(next.reminderOffsetMinutes),
     kilometerRate: String(next.kilometerRate),
@@ -524,9 +614,9 @@ export async function updateSettings(
   };
   for (const [key, value] of Object.entries(values)) {
     await db.runAsync(
-      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
       key,
-      value
+      value,
     );
   }
   return next;
@@ -557,14 +647,14 @@ type ScheduleRuleInput = {
 
 function parseWeekdays(value: string): number[] {
   return value
-    .split(',')
+    .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item >= 0 && item <= 6)
     .sort((a, b) => a - b);
 }
 
 function serializeWeekdays(weekdays: number[]): string {
-  return [...new Set(weekdays)].sort((a, b) => a - b).join(',');
+  return [...new Set(weekdays)].sort((a, b) => a - b).join(",");
 }
 
 function mapSchedule(row: ScheduleRow): ScheduleRule {
@@ -582,21 +672,29 @@ function mapSchedule(row: ScheduleRow): ScheduleRule {
   };
 }
 
-export async function listScheduleRules(db: SQLiteDatabase): Promise<ScheduleRule[]> {
+export async function listScheduleRules(
+  db: SQLiteDatabase,
+): Promise<ScheduleRule[]> {
   const rows = await db.getAllAsync<ScheduleRow>(
-    'SELECT * FROM schedule_rules ORDER BY type, start_time'
+    "SELECT * FROM schedule_rules ORDER BY type, start_time",
   );
   return rows.map(mapSchedule);
 }
 
-export async function getScheduleRule(db: SQLiteDatabase, id: string): Promise<ScheduleRule | null> {
-  const row = await db.getFirstAsync<ScheduleRow>('SELECT * FROM schedule_rules WHERE id = ?', id);
+export async function getScheduleRule(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<ScheduleRule | null> {
+  const row = await db.getFirstAsync<ScheduleRow>(
+    "SELECT * FROM schedule_rules WHERE id = ?",
+    id,
+  );
   return row ? mapSchedule(row) : null;
 }
 
 export async function createScheduleRule(
   db: SQLiteDatabase,
-  input: ScheduleRuleInput
+  input: ScheduleRuleInput,
 ): Promise<ScheduleRule> {
   const id = createId();
   const now = nowIso();
@@ -612,17 +710,17 @@ export async function createScheduleRule(
     input.notes,
     input.enabled ? 1 : 0,
     now,
-    now
+    now,
   );
   const created = await getScheduleRule(db, id);
-  if (!created) throw new Error('Nie udało się zapisać harmonogramu');
+  if (!created) throw new Error("Nie udało się zapisać harmonogramu");
   return created;
 }
 
 export async function updateScheduleRule(
   db: SQLiteDatabase,
   id: string,
-  input: ScheduleRuleInput
+  input: ScheduleRuleInput,
 ): Promise<void> {
   await db.runAsync(
     `UPDATE schedule_rules
@@ -636,20 +734,26 @@ export async function updateScheduleRule(
     input.notes,
     input.enabled ? 1 : 0,
     nowIso(),
-    id
+    id,
   );
 }
 
-export async function deleteScheduleRule(db: SQLiteDatabase, id: string): Promise<void> {
-  await db.runAsync('DELETE FROM schedule_skips WHERE schedule_rule_id = ?', id);
-  await db.runAsync('DELETE FROM schedule_rules WHERE id = ?', id);
+export async function deleteScheduleRule(
+  db: SQLiteDatabase,
+  id: string,
+): Promise<void> {
+  await db.runAsync(
+    "DELETE FROM schedule_skips WHERE schedule_rule_id = ?",
+    id,
+  );
+  await db.runAsync("DELETE FROM schedule_rules WHERE id = ?", id);
 }
 
 export async function deleteFutureScheduledEvents(
   db: SQLiteDatabase,
   ruleId: string,
   fromDate: string,
-  toDate?: string
+  toDate?: string,
 ): Promise<void> {
   const rule = await getScheduleRule(db, ruleId);
   const rows = toDate
@@ -657,36 +761,41 @@ export async function deleteFutureScheduledEvents(
         `SELECT id, date FROM events WHERE schedule_rule_id = ? AND completed = 0 AND date >= ? AND date <= ?`,
         ruleId,
         fromDate,
-        toDate
+        toDate,
       )
     : await db.getAllAsync<{ id: string; date: string }>(
         `SELECT id, date FROM events WHERE schedule_rule_id = ? AND completed = 0 AND date >= ?`,
         ruleId,
-        fromDate
+        fromDate,
       );
   for (const row of rows) {
     const weekday = mondayWeekdayIndex(parseISODate(row.date));
     const stillOnRuleDay = Boolean(rule?.weekdays.includes(weekday));
     if (stillOnRuleDay) {
-      await db.runAsync('DELETE FROM events WHERE id = ?', row.id);
+      await db.runAsync("DELETE FROM events WHERE id = ?", row.id);
     } else {
       await db.runAsync(
         `UPDATE events SET source = 'manual', schedule_rule_id = NULL, updated_at = ? WHERE id = ?`,
         nowIso(),
-        row.id
+        row.id,
       );
     }
   }
 }
 
-export async function listScheduleSkipKeys(db: SQLiteDatabase): Promise<Set<string>> {
+export async function listScheduleSkipKeys(
+  db: SQLiteDatabase,
+): Promise<Set<string>> {
   const rows = await db.getAllAsync<{ schedule_rule_id: string; date: string }>(
-    'SELECT schedule_rule_id, date FROM schedule_skips'
+    "SELECT schedule_rule_id, date FROM schedule_skips",
   );
   return new Set(rows.map((row) => `${row.schedule_rule_id}|${row.date}`));
 }
 
-async function skipScheduleSlot(db: SQLiteDatabase, event: EventRecord): Promise<void> {
+async function skipScheduleSlot(
+  db: SQLiteDatabase,
+  event: EventRecord,
+): Promise<void> {
   if (event.scheduleRuleId) {
     await insertScheduleSkip(db, event.scheduleRuleId, event.date);
   }
@@ -706,13 +815,13 @@ async function skipScheduleSlot(db: SQLiteDatabase, event: EventRecord): Promise
 async function insertScheduleSkip(
   db: SQLiteDatabase,
   ruleId: string,
-  date: string
+  date: string,
 ): Promise<void> {
   await db.runAsync(
     `INSERT OR IGNORE INTO schedule_skips (id, schedule_rule_id, date, created_at) VALUES (?, ?, ?, ?)`,
     createId(),
     ruleId,
     date,
-    nowIso()
+    nowIso(),
   );
 }

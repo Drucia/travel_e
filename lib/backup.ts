@@ -1,38 +1,60 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SQLiteDatabase } from "expo-sqlite";
 
 import {
-  BACKUP_VERSION,
-  type BackupFile,
-  type DeviceBackupInfo,
-  backupFileName,
-  deviceBackupInfo,
-  parseBackup,
-  stringifyBackup,
-} from '@/lib/backupFormat';
-import { nowIso } from '@/lib/id';
+    BACKUP_VERSION,
+    type BackupFile,
+    type DeviceBackupInfo,
+    backupFileName,
+    deviceBackupInfo,
+    parseBackup,
+    stringifyBackup,
+} from "@/lib/backupFormat";
+import { nowIso } from "@/lib/id";
 
 export {
-  BACKUP_VERSION,
-  backupFileName,
-  deviceBackupInfo,
-  parseBackup,
-  stringifyBackup,
+    BACKUP_VERSION,
+    backupFileName,
+    deviceBackupInfo,
+    parseBackup,
+    stringifyBackup
 };
 export type { BackupFile, DeviceBackupInfo };
 
 export async function createBackup(db: SQLiteDatabase): Promise<BackupFile> {
-  const [seasons, destinations, scheduleRules, scheduleSkips, events, settlements, settings] = await Promise.all([
-    db.getAllAsync<Record<string, unknown>>('SELECT * FROM seasons ORDER BY start_date'),
-    db.getAllAsync<Record<string, unknown>>('SELECT * FROM destinations ORDER BY name COLLATE NOCASE'),
-    db.getAllAsync<Record<string, unknown>>('SELECT * FROM schedule_rules ORDER BY type, start_time'),
-    db.getAllAsync<Record<string, unknown>>('SELECT * FROM schedule_skips ORDER BY date'),
-    db.getAllAsync<Record<string, unknown>>('SELECT * FROM events ORDER BY date, start_time'),
-    db.getAllAsync<Record<string, unknown>>('SELECT * FROM settlements ORDER BY month'),
-    db.getAllAsync<{ key: string; value: string }>('SELECT key, value FROM settings ORDER BY key'),
+  const [
+    seasons,
+    destinations,
+    scheduleRules,
+    scheduleSkips,
+    events,
+    settlements,
+    settings,
+  ] = await Promise.all([
+    db.getAllAsync<Record<string, unknown>>(
+      "SELECT * FROM seasons ORDER BY start_date",
+    ),
+    db.getAllAsync<Record<string, unknown>>(
+      "SELECT * FROM destinations ORDER BY name COLLATE NOCASE",
+    ),
+    db.getAllAsync<Record<string, unknown>>(
+      "SELECT * FROM schedule_rules ORDER BY type, start_time",
+    ),
+    db.getAllAsync<Record<string, unknown>>(
+      "SELECT * FROM schedule_skips ORDER BY date",
+    ),
+    db.getAllAsync<Record<string, unknown>>(
+      "SELECT * FROM events ORDER BY date, start_time",
+    ),
+    db.getAllAsync<Record<string, unknown>>(
+      "SELECT * FROM settlements ORDER BY month",
+    ),
+    db.getAllAsync<{ key: string; value: string }>(
+      "SELECT key, value FROM settings ORDER BY key",
+    ),
   ]);
 
   return {
-    app: 'ewidencja',
+    app: "ewidencja",
     version: BACKUP_VERSION,
     exportedAt: nowIso(),
     seasons,
@@ -45,8 +67,11 @@ export async function createBackup(db: SQLiteDatabase): Promise<BackupFile> {
   };
 }
 
-export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Promise<void> {
-  await db.execAsync('PRAGMA foreign_keys = OFF');
+export async function restoreBackup(
+  db: SQLiteDatabase,
+  backup: BackupFile,
+): Promise<void> {
+  await db.execAsync("PRAGMA foreign_keys = OFF");
   try {
     await db.withTransactionAsync(async () => {
       await db.execAsync(`
@@ -69,7 +94,7 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           str(row.end_date),
           int(row.is_active, 0),
           str(row.created_at, nowIso()),
-          str(row.updated_at, nowIso())
+          str(row.updated_at, nowIso()),
         );
       }
 
@@ -81,10 +106,10 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           str(row.name),
           nullable(row.address),
           num(row.distance),
-          str(row.distance_type, 'round_trip'),
+          str(row.distance_type, "round_trip"),
           num(row.round_trip_rate),
           str(row.created_at, nowIso()),
-          str(row.updated_at, nowIso())
+          str(row.updated_at, nowIso()),
         );
       }
 
@@ -101,7 +126,7 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           nullable(row.notes),
           int(row.enabled, 1),
           str(row.created_at, nowIso()),
-          str(row.updated_at, nowIso())
+          str(row.updated_at, nowIso()),
         );
       }
 
@@ -111,7 +136,7 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           str(row.id),
           str(row.schedule_rule_id),
           str(row.date),
-          str(row.created_at, nowIso())
+          str(row.created_at, nowIso()),
         );
       }
 
@@ -138,10 +163,10 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           nullable(row.absence_note),
           int(row.completed, 0),
           nullable(row.notification_id),
-          str(row.source, 'manual'),
+          str(row.source, "manual"),
           nullable(row.schedule_rule_id),
           str(row.created_at, nowIso()),
-          str(row.updated_at, nowIso())
+          str(row.updated_at, nowIso()),
         );
       }
 
@@ -154,31 +179,35 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           num(row.amount),
           str(row.received_date),
           str(row.created_at, nowIso()),
-          str(row.updated_at, nowIso())
+          str(row.updated_at, nowIso()),
         );
       }
 
       for (const row of backup.settings) {
-        await db.runAsync('INSERT INTO settings (key, value) VALUES (?, ?)', row.key, row.value);
+        await db.runAsync(
+          "INSERT INTO settings (key, value) VALUES (?, ?)",
+          row.key,
+          row.value,
+        );
       }
     });
   } finally {
-    await db.execAsync('PRAGMA foreign_keys = ON');
+    await db.execAsync("PRAGMA foreign_keys = ON");
   }
 }
 
-function str(value: unknown, fallback = ''): string {
+function str(value: unknown, fallback = ""): string {
   if (value === null || value === undefined) return fallback;
   return String(value);
 }
 
 function nullable(value: unknown): string | null {
-  if (value === null || value === undefined || value === '') return null;
+  if (value === null || value === undefined || value === "") return null;
   return String(value);
 }
 
 function num(value: unknown): number {
-  const n = typeof value === 'number' ? value : Number(value ?? 0);
+  const n = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(n) ? n : 0;
 }
 

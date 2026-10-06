@@ -1,17 +1,17 @@
-import { Platform } from 'react-native';
-import type { SQLiteDatabase } from 'expo-sqlite';
+import type { SQLiteDatabase } from "expo-sqlite";
+import { Platform } from "react-native";
 
-import { currentSeasonWindow } from '@/lib/dates';
-import { createId, nowIso } from '@/lib/id';
-import { DEFAULT_SETTINGS } from '@/lib/db/types';
+import { currentSeasonWindow } from "@/lib/dates";
+import { DEFAULT_SETTINGS } from "@/lib/db/types";
+import { createId, nowIso } from "@/lib/id";
 
 const DATABASE_VERSION = 6;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
-  await db.execAsync('PRAGMA foreign_keys = ON');
-  if (Platform.OS !== 'web') {
+  await db.execAsync("PRAGMA foreign_keys = ON");
+  if (Platform.OS !== "web") {
     try {
-      await db.execAsync('PRAGMA journal_mode = WAL');
+      await db.execAsync("PRAGMA journal_mode = WAL");
     } catch {
       // Some SQLite builds reject WAL; the rest of the schema can still load.
     }
@@ -116,38 +116,49 @@ async function ensureCoreSchema(db: SQLiteDatabase): Promise<void> {
 }
 
 async function ensureMissingColumns(db: SQLiteDatabase): Promise<void> {
-  const destinationColumns = await columnNames(db, 'destinations');
-  if (!destinationColumns.has('round_trip_rate')) {
-    await db.execAsync('ALTER TABLE destinations ADD COLUMN round_trip_rate REAL NOT NULL DEFAULT 0');
-  }
-
-  const eventColumns = await columnNames(db, 'events');
-  if (!eventColumns.has('trip_direction')) {
-    await db.execAsync('ALTER TABLE events ADD COLUMN trip_direction TEXT');
-    await db.runAsync(
-      `UPDATE events SET trip_direction = 'round_trip' WHERE traveled = 1 AND trip_direction IS NULL`
+  const destinationColumns = await columnNames(db, "destinations");
+  if (!destinationColumns.has("round_trip_rate")) {
+    await db.execAsync(
+      "ALTER TABLE destinations ADD COLUMN round_trip_rate REAL NOT NULL DEFAULT 0",
     );
   }
-  if (!eventColumns.has('source')) {
-    await db.execAsync(`ALTER TABLE events ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'`);
+
+  const eventColumns = await columnNames(db, "events");
+  if (!eventColumns.has("trip_direction")) {
+    await db.execAsync("ALTER TABLE events ADD COLUMN trip_direction TEXT");
+    await db.runAsync(
+      `UPDATE events SET trip_direction = 'round_trip' WHERE traveled = 1 AND trip_direction IS NULL`,
+    );
   }
-  if (!eventColumns.has('schedule_rule_id')) {
-    await db.execAsync('ALTER TABLE events ADD COLUMN schedule_rule_id TEXT');
+  if (!eventColumns.has("source")) {
+    await db.execAsync(
+      `ALTER TABLE events ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'`,
+    );
+  }
+  if (!eventColumns.has("schedule_rule_id")) {
+    await db.execAsync("ALTER TABLE events ADD COLUMN schedule_rule_id TEXT");
   }
 
-  const scheduleColumns = await columnNames(db, 'schedule_rules');
-  if (!scheduleColumns.has('notes')) {
-    await db.execAsync('ALTER TABLE schedule_rules ADD COLUMN notes TEXT');
+  const scheduleColumns = await columnNames(db, "schedule_rules");
+  if (!scheduleColumns.has("notes")) {
+    await db.execAsync("ALTER TABLE schedule_rules ADD COLUMN notes TEXT");
   }
 }
 
-async function columnNames(db: SQLiteDatabase, table: string): Promise<Set<string>> {
-  const rows = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+async function columnNames(
+  db: SQLiteDatabase,
+  table: string,
+): Promise<Set<string>> {
+  const rows = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(${table})`,
+  );
   return new Set(rows.map((row) => row.name));
 }
 
 async function seedIfEmpty(db: SQLiteDatabase): Promise<void> {
-  const seasonCount = await db.getFirstAsync<{ c: number }>('SELECT COUNT(*) as c FROM seasons');
+  const seasonCount = await db.getFirstAsync<{ c: number }>(
+    "SELECT COUNT(*) as c FROM seasons",
+  );
   if ((seasonCount?.c ?? 0) === 0) {
     const season = currentSeasonWindow();
     const now = nowIso();
@@ -159,12 +170,12 @@ async function seedIfEmpty(db: SQLiteDatabase): Promise<void> {
       season.startDate,
       season.endDate,
       now,
-      now
+      now,
     );
   }
 
   const defaults: Record<string, string> = {
-    reminderEnabled: DEFAULT_SETTINGS.reminderEnabled ? '1' : '0',
+    reminderEnabled: DEFAULT_SETTINGS.reminderEnabled ? "1" : "0",
     reminderTime: DEFAULT_SETTINGS.reminderTime,
     reminderOffsetMinutes: String(DEFAULT_SETTINGS.reminderOffsetMinutes),
     kilometerRate: String(DEFAULT_SETTINGS.kilometerRate),
@@ -172,6 +183,10 @@ async function seedIfEmpty(db: SQLiteDatabase): Promise<void> {
   };
 
   for (const [key, value] of Object.entries(defaults)) {
-    await db.runAsync('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', key, value);
+    await db.runAsync(
+      "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+      key,
+      value,
+    );
   }
 }
