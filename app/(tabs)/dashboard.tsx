@@ -11,6 +11,8 @@ import { monthRange, shiftMonth, toISODate } from "@/lib/dates";
 import {
     getSettlement,
     listEventsBetween,
+    listEventsBySeason,
+    listSettlementsBetween,
     saveSettlement,
 } from "@/lib/db/queries";
 import type { EventRecord, Settlement } from "@/lib/db/types";
@@ -18,14 +20,16 @@ import { formatAttendance, formatMoney, labeledCount } from "@/lib/format";
 import { computeStats } from "@/lib/stats";
 
 export default function DashboardScreen() {
-  const { destinations } = useApp();
+  const { activeSeason, destinations } = useApp();
   const db = useDb();
   const navigation = useNavigation();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [monthIndex, setMonthIndex] = useState(now.getMonth());
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [seasonEvents, setSeasonEvents] = useState<EventRecord[]>([]);
   const [settlement, setSettlement] = useState<Settlement | null>(null);
+  const [seasonSettlements, setSeasonSettlements] = useState<Settlement[]>([]);
   const [receivedAmount, setReceivedAmount] = useState("");
   const [receivedDate, setReceivedDate] = useState(toISODate(now));
   const [savingSettlement, setSavingSettlement] = useState(false);
@@ -36,12 +40,29 @@ export default function DashboardScreen() {
   const load = useCallback(async () => {
     try {
       const range = monthRange(year, monthIndex);
-      const [nextEvents, nextSettlement] = await Promise.all([
+      const [
+        nextEvents,
+        nextSettlement,
+        nextSeasonEvents,
+        nextSeasonSettlements,
+      ] = await Promise.all([
         listEventsBetween(db, range.start, range.end),
         getSettlement(db, monthKey),
+        activeSeason
+          ? listEventsBySeason(db, activeSeason.id)
+          : Promise.resolve([]),
+        activeSeason
+          ? listSettlementsBetween(
+              db,
+              activeSeason.startDate.slice(0, 7),
+              activeSeason.endDate.slice(0, 7),
+            )
+          : Promise.resolve([]),
       ]);
       setEvents(nextEvents);
+      setSeasonEvents(nextSeasonEvents);
       setSettlement(nextSettlement);
+      setSeasonSettlements(nextSeasonSettlements);
       setReceivedAmount(
         nextSettlement ? String(nextSettlement.amount).replace(".", ",") : "",
       );
@@ -49,7 +70,7 @@ export default function DashboardScreen() {
     } catch (error) {
       console.warn("Nie udało się wczytać dashboardu", error);
     }
-  }, [db, monthKey, year, monthIndex]);
+  }, [activeSeason, db, monthKey, year, monthIndex]);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,17 +82,26 @@ export default function DashboardScreen() {
     () => computeStats(events, destinations),
     [events, destinations],
   );
+  const seasonStats = useMemo(
+    () => computeStats(seasonEvents, destinations),
+    [seasonEvents, destinations],
+  );
+  const seasonReceivedAmount = useMemo(
+    () => seasonSettlements.reduce((total, item) => total + item.amount, 0),
+    [seasonSettlements],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerTitle: "Dashboard",
       headerRight: () => (
         <Text style={styles.headerMoney}>
-          {formatMoney(settlement?.amount ?? 0)} / {formatMoney(stats.amount)}
+          {formatMoney(seasonReceivedAmount)} /{" "}
+          {formatMoney(seasonStats.amount)}
         </Text>
       ),
     });
-  }, [navigation, settlement?.amount, stats.amount]);
+  }, [navigation, seasonReceivedAmount, seasonStats.amount]);
 
   function changeMonth(delta: number) {
     const next = shiftMonth(year, monthIndex, delta);

@@ -161,6 +161,19 @@ export async function getSettlement(
   return row ? mapSettlement(row) : null;
 }
 
+export async function listSettlementsBetween(
+  db: SQLiteDatabase,
+  startMonth: string,
+  endMonth: string,
+): Promise<Settlement[]> {
+  const rows = await db.getAllAsync<SettlementRow>(
+    "SELECT * FROM settlements WHERE month >= ? AND month <= ? ORDER BY month",
+    startMonth,
+    endMonth,
+  );
+  return rows.map(mapSettlement);
+}
+
 export async function saveSettlement(
   db: SQLiteDatabase,
   input: { month: string; amount: number; receivedDate: string },
