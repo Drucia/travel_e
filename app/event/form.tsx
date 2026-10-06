@@ -1,16 +1,25 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 
-import { DestinationRow } from '@/components/DestinationRow';
-import { DateField, TextField, TimeField } from '@/components/fields';
-import { AppButton, ChoiceGroup, Screen, SectionLabel } from '@/components/ui';
-import { colors, radius, space } from '@/constants/theme';
-import { useApp, useDb } from '@/context/AppContext';
-import { toISODate } from '@/lib/dates';
-import { createEvent, getEvent, updateEvent } from '@/lib/db/queries';
-import type { EventType } from '@/lib/db/types';
-import { scheduleEventReminder } from '@/lib/notifications';
+import { DestinationRow } from "@/components/DestinationRow";
+import { DateField, TextField, TimeField } from "@/components/fields";
+import { AppButton, ChoiceGroup, Screen, SectionLabel } from "@/components/ui";
+import { colors, radius, space } from "@/constants/theme";
+import { useApp, useDb } from "@/context/AppContext";
+import { toISODate } from "@/lib/dates";
+import { createEvent, getEvent, updateEvent } from "@/lib/db/queries";
+import type { EventType } from "@/lib/db/types";
+import { scheduleEventReminder } from "@/lib/notifications";
 
 export default function EventFormScreen() {
   const { date, id } = useLocalSearchParams<{ date?: string; id?: string }>();
@@ -19,13 +28,13 @@ export default function EventFormScreen() {
   const router = useRouter();
   const editing = Boolean(id);
 
-  const [type, setType] = useState<EventType>('training');
+  const [type, setType] = useState<EventType>("training");
   const [eventDate, setEventDate] = useState(date ?? toISODate(new Date()));
-  const [startTime, setStartTime] = useState('18:00');
+  const [startTime, setStartTime] = useState("18:00");
   const [endTime, setEndTime] = useState<string | null>(null);
-  const [seasonId, setSeasonId] = useState(activeSeason?.id ?? '');
+  const [seasonId, setSeasonId] = useState(activeSeason?.id ?? "");
   const [destinationId, setDestinationId] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -45,13 +54,13 @@ export default function EventFormScreen() {
       setEndTime(event.endTime);
       setSeasonId(event.seasonId);
       setDestinationId(event.destinationId);
-      setNotes(event.notes ?? '');
+      setNotes(event.notes ?? "");
     })();
   }, [db, id]);
 
   async function save() {
     if (!seasonId) {
-      Alert.alert('Brak sezonu', 'Najpierw utwórz sezon.');
+      Alert.alert("Brak sezonu", "Najpierw utwórz sezon.");
       return;
     }
     setSaving(true);
@@ -66,7 +75,9 @@ export default function EventFormScreen() {
         notes: notes.trim() || null,
       };
       const event =
-        editing && id ? await updateEvent(db, id, draft) : await createEvent(db, draft);
+        editing && id
+          ? await updateEvent(db, id, draft)
+          : await createEvent(db, draft);
       await scheduleEventReminder(event, settings);
       await refresh();
       if (editing) {
@@ -75,7 +86,10 @@ export default function EventFormScreen() {
         router.replace(`/event/${event.id}`);
       }
     } catch (error) {
-      Alert.alert('Nie udało się zapisać', error instanceof Error ? error.message : 'Spróbuj ponownie.');
+      Alert.alert(
+        "Nie udało się zapisać",
+        error instanceof Error ? error.message : "Spróbuj ponownie.",
+      );
     } finally {
       setSaving(false);
     }
@@ -83,21 +97,36 @@ export default function EventFormScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.flex}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           <SectionLabel>Typ</SectionLabel>
           <ChoiceGroup
             options={[
-              { label: '🏐 Trening', value: 'training' },
-              { label: '🏆 Mecz', value: 'match' },
+              { label: "🏐 Trening", value: "training" },
+              { label: "🏆 Mecz", value: "match" },
             ]}
             value={type}
             onChange={setType}
           />
 
           <DateField label="Data" value={eventDate} onChange={setEventDate} />
-          <TimeField label="Godzina rozpoczęcia" value={startTime} onChange={(value) => value && setStartTime(value)} />
-          <TimeField label="Godzina zakończenia" value={endTime} onChange={setEndTime} optional />
+          <TimeField
+            label="Godzina rozpoczęcia"
+            value={startTime}
+            onChange={(value) => value && setStartTime(value)}
+          />
+          <TimeField
+            label="Godzina zakończenia"
+            value={endTime}
+            onChange={setEndTime}
+            optional
+          />
 
           <SectionLabel>Sezon</SectionLabel>
           <View style={styles.seasonList}>
@@ -107,7 +136,11 @@ export default function EventFormScreen() {
                 <Pressable
                   key={season.id}
                   onPress={() => setSeasonId(season.id)}
-                  style={[styles.seasonChip, selected && styles.seasonChipSelected]}>
+                  style={[
+                    styles.seasonChip,
+                    selected && styles.seasonChipSelected,
+                  ]}
+                >
                   <Text style={styles.seasonChipText}>{season.name}</Text>
                 </Pressable>
               );
@@ -122,15 +155,19 @@ export default function EventFormScreen() {
                 destination={destination}
                 selected={destination.id === destinationId}
                 onPress={() =>
-                  setDestinationId((current) => (current === destination.id ? null : destination.id))
+                  setDestinationId((current) =>
+                    current === destination.id ? null : destination.id,
+                  )
                 }
               />
             ))}
-            <AppButton
-              label="Dodaj miejsce"
-              variant="secondary"
-              onPress={() => router.push('/destinations/new')}
-            />
+            {destinations.length === 0 ? (
+              <AppButton
+                label="Dodaj miejsce"
+                variant="secondary"
+                onPress={() => router.push("/destinations/new")}
+              />
+            ) : null}
           </View>
 
           <TextField
@@ -141,7 +178,11 @@ export default function EventFormScreen() {
             multiline
           />
 
-          <AppButton label={saving ? 'Zapisywanie…' : 'Zapisz'} onPress={() => void save()} disabled={saving} />
+          <AppButton
+            label={saving ? "Zapisywanie…" : "Zapisz"}
+            onPress={() => void save()}
+            disabled={saving}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -156,8 +197,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   seasonList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   seasonChip: {
@@ -174,7 +215,7 @@ const styles = StyleSheet.create({
   },
   seasonChipText: {
     color: colors.text,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   list: {
     gap: 8,

@@ -61,6 +61,15 @@ export type ScheduleRule = {
   updatedAt: string;
 };
 
+export type Settlement = {
+  id: string;
+  month: string;
+  amount: number;
+  receivedDate: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Settings = {
   reminderEnabled: boolean;
   reminderTime: string;

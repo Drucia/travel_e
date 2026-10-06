@@ -2,7 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { createId, nowIso } from '@/lib/id';
 import { mondayWeekdayIndex, parseISODate } from '@/lib/dates';
-import { DEFAULT_SETTINGS, type CompletionDraft, type Destination, type DistanceType, type EventDraft, type EventRecord, type EventType, type ScheduleRule, type Season, type Settings, type Transport, type TripDirection } from '@/lib/db/types';
+import { DEFAULT_SETTINGS, type CompletionDraft, type Destination, type DistanceType, type EventDraft, type EventRecord, type EventType, type ScheduleRule, type Season, type Settlement, type Settings, type Transport, type TripDirection } from '@/lib/db/types';
 
 type SeasonRow = {
   id: string;
@@ -52,6 +52,15 @@ type EventRow = {
 type SettingsRow = {
   key: string;
   value: string;
+};
+
+type SettlementRow = {
+  id: string;
+  month: string;
+  amount: number;
+  received_date: string;
+  created_at: string;
+  updated_at: string;
 };
 
 const EVENT_SELECT = `
@@ -114,6 +123,45 @@ function mapEvent(row: EventRow): EventRecord {
     updatedAt: row.updated_at,
     destinationName: row.destination_name ?? null,
   };
+}
+
+function mapSettlement(row: SettlementRow): Settlement {
+  return {
+    id: row.id,
+    month: row.month,
+    amount: row.amount,
+    receivedDate: row.received_date,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getSettlement(db: SQLiteDatabase, month: string): Promise<Settlement | null> {
+  const row = await db.getFirstAsync<SettlementRow>('SELECT * FROM settlements WHERE month = ?', month);
+  return row ? mapSettlement(row) : null;
+}
+
+export async function saveSettlement(
+  db: SQLiteDatabase,
+  input: { month: string; amount: number; receivedDate: string }
+): Promise<Settlement> {
+  const existing = await getSettlement(db, input.month);
+  const id = existing?.id ?? createId();
+  const now = nowIso();
+  await db.runAsync(
+    `INSERT INTO settlements (id, month, amount, received_date, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(month) DO UPDATE SET amount = excluded.amount, received_date = excluded.received_date, updated_at = excluded.updated_at`,
+    id,
+    input.month,
+    input.amount,
+    input.receivedDate,
+    existing?.createdAt ?? now,
+    now
+  );
+  const saved = await getSettlement(db, input.month);
+  if (!saved) throw new Error('Nie udało się zapisać rozliczenia');
+  return saved;
 }
 
 export async function listSeasons(db: SQLiteDatabase): Promise<Season[]> {

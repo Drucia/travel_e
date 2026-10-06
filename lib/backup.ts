@@ -21,12 +21,13 @@ export {
 export type { BackupFile, DeviceBackupInfo };
 
 export async function createBackup(db: SQLiteDatabase): Promise<BackupFile> {
-  const [seasons, destinations, scheduleRules, scheduleSkips, events, settings] = await Promise.all([
+  const [seasons, destinations, scheduleRules, scheduleSkips, events, settlements, settings] = await Promise.all([
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM seasons ORDER BY start_date'),
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM destinations ORDER BY name COLLATE NOCASE'),
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM schedule_rules ORDER BY type, start_time'),
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM schedule_skips ORDER BY date'),
     db.getAllAsync<Record<string, unknown>>('SELECT * FROM events ORDER BY date, start_time'),
+    db.getAllAsync<Record<string, unknown>>('SELECT * FROM settlements ORDER BY month'),
     db.getAllAsync<{ key: string; value: string }>('SELECT key, value FROM settings ORDER BY key'),
   ]);
 
@@ -39,6 +40,7 @@ export async function createBackup(db: SQLiteDatabase): Promise<BackupFile> {
     scheduleRules,
     scheduleSkips,
     events,
+    settlements,
     settings,
   };
 }
@@ -53,6 +55,7 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
         DELETE FROM schedule_rules;
         DELETE FROM destinations;
         DELETE FROM seasons;
+        DELETE FROM settlements;
         DELETE FROM settings;
       `);
 
@@ -137,6 +140,19 @@ export async function restoreBackup(db: SQLiteDatabase, backup: BackupFile): Pro
           nullable(row.notification_id),
           str(row.source, 'manual'),
           nullable(row.schedule_rule_id),
+          str(row.created_at, nowIso()),
+          str(row.updated_at, nowIso())
+        );
+      }
+
+      for (const row of backup.settlements) {
+        await db.runAsync(
+          `INSERT INTO settlements (id, month, amount, received_date, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          str(row.id),
+          str(row.month),
+          num(row.amount),
+          str(row.received_date),
           str(row.created_at, nowIso()),
           str(row.updated_at, nowIso())
         );

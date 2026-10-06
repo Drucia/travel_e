@@ -5,7 +5,7 @@ import { currentSeasonWindow } from '@/lib/dates';
 import { createId, nowIso } from '@/lib/id';
 import { DEFAULT_SETTINGS } from '@/lib/db/types';
 
-const DATABASE_VERSION = 5;
+const DATABASE_VERSION = 6;
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON');
@@ -99,9 +99,19 @@ async function ensureCoreSchema(db: SQLiteDatabase): Promise<void> {
       FOREIGN KEY (schedule_rule_id) REFERENCES schedule_rules(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS settlements (
+      id TEXT PRIMARY KEY NOT NULL,
+      month TEXT NOT NULL UNIQUE,
+      amount REAL NOT NULL DEFAULT 0,
+      received_date TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
     CREATE INDEX IF NOT EXISTS idx_events_season ON events(season_id);
     CREATE INDEX IF NOT EXISTS idx_events_completed ON events(completed);
+    CREATE INDEX IF NOT EXISTS idx_settlements_month ON settlements(month);
   `);
 }
 

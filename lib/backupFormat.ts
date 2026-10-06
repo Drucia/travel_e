@@ -9,6 +9,7 @@ export type BackupFile = {
   scheduleRules: Record<string, unknown>[];
   scheduleSkips: Record<string, unknown>[];
   events: Record<string, unknown>[];
+  settlements: Record<string, unknown>[];
   settings: { key: string; value: string }[];
 };
 
@@ -58,6 +59,7 @@ export function parseBackup(raw: string): BackupFile {
     scheduleRules: data.scheduleRules,
     scheduleSkips: Array.isArray(data.scheduleSkips) ? data.scheduleSkips : [],
     events: data.events,
+    settlements: Array.isArray(data.settlements) ? data.settlements : [],
     settings: data.settings,
   };
 }
